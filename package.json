@@ -1,0 +1,21 @@
+{
+  "name": "card-battle-game",
+  "version": "1.0.0",
+  "description": "卡牌对战游戏网站",
+  "scripts": {
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "server": "cd server && npm run dev",
+    "client": "cd client && npm start",
+    "build": "cd client && npm run build",
+    "install-deps": "npm install && cd server && npm install && cd ../client && npm install"
+  },
+  "devDependencies": {
+    "concurrently": "^7.6.0"
+  },
+  "dependencies": {
+    "csv-parser": "^3.2.0",
+    "csv-writer": "^1.6.0",
+    "multer": "^2.0.2",
+    "socket.io-client": "^4.8.1"
+  }
+}
