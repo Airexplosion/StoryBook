@@ -7,58 +7,78 @@ const Home: React.FC = () => {
   const { user } = useSelector((state: RootState) => state.auth);
 
   return (
-    <div className="min-h-screen">
-      <div className="text-center py-20">
-        <h1 className="text-6xl font-bold text-white mb-8">
-          欢迎来到故事书对战平台
-        </h1>
-        <p className="text-xl text-gray-300 mb-12 max-w-2xl mx-auto">
-          体验刺激的故事书对战，建造你的专属卡组，与其他玩家展开激烈对决！
-        </p>
+    <div className="min-h-screen" style={{ backgroundColor: '#111111' }}>
+      <div className="text-center" style={{ paddingTop: '40px', paddingBottom: '80px' }}>
+        <div className="mb-24 flex justify-center">
+          <img src="/logo.svg" alt="异域故事书·对战" className="w-96 h-auto" />
+        </div>
+      
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
+        <div className="flex justify-center items-stretch max-w-4xl mx-auto">
           <Link
             to="/cards"
-            className="bg-white bg-opacity-10 backdrop-blur-md rounded-xl p-8 hover:bg-opacity-20 transition-all duration-300 transform hover:scale-105"
+            className="flex-1 p-8 transition-all duration-300 text-center group"
           >
-            <div className="text-4xl mb-4">🃏</div>
-            <h3 className="text-2xl font-bold text-white mb-4">卡牌集</h3>
-            <p className="text-gray-300">
+            <div className="mb-4 flex justify-center">
+              <svg className="w-16 h-16 transition-colors duration-300 group-hover:fill-[#FBFBFB]" viewBox="0 0 1024 1024" fill="#AEAEAE">
+                <path d="M265.888 762.2688l99.69386667-565.40053333c4.27306667-24.2208 17.52533333-44.42346667 35.488-58.46826667l-287.8464 50.75413333c-52.04373333 9.17653333-86.79573333 58.80426667-77.62026667 110.84906667l99.696 565.40266667c9.17653333 52.04373333 58.80426667 86.7936 110.84906667 77.61706666l246.8992-43.536-149.54453334-26.368c-52.04373333-9.17546667-86.79146667-58.8064-77.61493333-110.85013333z"/>
+                <path d="M910.7776 147.44L533.84533333 80.97813333c-52.04373333-9.17866667-101.67253333 25.5712-110.84906666 77.61493334l-99.696 565.40053333c-9.17866667 52.04586667 25.5712 101.67466667 77.61493333 110.8512l376.93653333 66.46506667c52.04373333 9.17653333 101.67253333-25.57333333 110.84906667-77.62026667l99.696-565.40053333c9.17653333-52.04373333-25.57333333-101.67253333-77.6192-110.84906667zM811.73333333 674.19946667v0.05333333c0 9.05493333-16.65813333 15.1616-25.43253333 13.61493333l-306.768-54.20906666c-8.77866667-1.5488-12.3328-10.1664-12.3328-19.22133334v-0.05333333s6.56-59.8144 52.7168-74.10666667c29.22986667-9.02186667 14.93973333 0.336 50.336-7.96586666 35.3568-8.256 43.01333333-11.79733333 43.01333333-11.79733334l5.51893334-32.35733333s-10.84906667-11.888-9.27893334-43.06666667c-8.13866667 0.95573333-8.7488-11.1456-7.8816-18.6464 0.848-7.2256 0.66986667-30.304 9.72906667-26.6272 0.69653333-15.26186667 1.6608-28.97493333 3.61066667-35.99253333 6.76053333-24.62933333 34.71466667-46.6688 71.05066666-42.2368 41.98933333 9.36746667 54.1536 38.48533333 52.0864 63.93706667-0.5696 7.2608-4.4672 20.464-9.02933333 35.03253333 9.76746667-0.34133333 1.74506667 21.2608 0.0352 28.36053333-1.74506667 7.31946667-6.39146667 18.4832-13.65653333 14.81066667-9.2416 29.8272-23.2608 37.31733333-23.2608 37.31733333l-5.3824 32.29866667s6.97813333 5.95733333 37.38026666 25.8048c30.4256 19.8848 28.59093333 7.5456 52.97493334 26.0192 38.48426667 29.21706667 34.57066667 89.03146667 34.57066666 89.03146667z"/>
+              </svg>
+            </div>
+            <h3 className="text-2xl font-bold mb-4 transition-colors duration-300 group-hover:text-[#FBFBFB]" style={{ color: '#AEAEAE', fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif' }}>卡牌集</h3>
+            <p className="text-sm italic" style={{ color: '#AEAEAE' }}>
               浏览和创建各种类型的卡牌，包括故事牌、配角牌和主角牌
             </p>
           </Link>
 
+          <div className="w-px bg-[#C2B79C] mx-4"></div>
+
           <Link
             to="/decks"
-            className="bg-white bg-opacity-10 backdrop-blur-md rounded-xl p-8 hover:bg-opacity-20 transition-all duration-300 transform hover:scale-105"
+            className="flex-1 p-8 transition-all duration-300 text-center group"
           >
-            <div className="text-4xl mb-4">📚</div>
-            <h3 className="text-2xl font-bold text-white mb-4">卡组构建</h3>
-            <p className="text-gray-300">
+            <div className="mb-4 flex justify-center">
+              <svg className="w-16 h-16 transition-colors duration-300 group-hover:fill-[#FBFBFB]" viewBox="0 0 1024 1024" fill="#AEAEAE">
+                <path d="M157.538462 55.138462v31.507692h712.861538l-11.815385-31.507692zM157.538462 110.276923v31.507692h728.615384l-11.815384-31.507692zM894.030769 161.476923H157.538462v31.507692h748.307692z"/>
+                <path d="M192.984615 200.861538C145.723077 200.861538 106.338462 161.476923 106.338462 118.153846S145.723077 35.446154 192.984615 35.446154h677.415385l-11.815385-35.446154H192.984615C129.969231 0 78.769231 51.2 78.769231 118.153846s51.2 118.153846 114.215384 118.153846H945.230769l-11.815384-35.446154H192.984615z"/>
+                <path d="M512 236.307692h433.230769v787.692308H216.615385C161.476923 1020.061538 118.153846 980.676923 118.153846 933.415385v-748.307693C118.153846 236.307692 133.907692 236.307692 192.984615 236.307692H512zM118.153846 153.6v7.876923-7.876923z m393.846154 94.523077H275.692308V630.153846l118.153846-133.907692 118.153846 133.907692V248.123077z"/>
+                <path d="M196.923077 208.738462h-3.938462C129.969231 208.738462 78.769231 169.353846 78.769231 118.153846v775.876923c0 47.261538 47.261538 86.646154 102.4 90.584616H196.923077V208.738462z"/>
+              </svg>
+            </div>
+            <h3 className="text-2xl font-bold mb-4 transition-colors duration-300 group-hover:text-[#FBFBFB]" style={{ color: '#AEAEAE', fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif' }}>卡组构建</h3>
+            <p className="text-sm italic" style={{ color: '#AEAEAE' }}>
               从卡牌集中选择40张卡牌，构建你的专属卡组
             </p>
           </Link>
 
+          <div className="w-px bg-[#C2B79C] mx-4"></div>
+
           <Link
             to="/rooms"
-            className="bg-white bg-opacity-10 backdrop-blur-md rounded-xl p-8 hover:bg-opacity-20 transition-all duration-300 transform hover:scale-105"
+            className="flex-1 p-8 transition-all duration-300 text-center group"
           >
-            <div className="text-4xl mb-4">⚔️</div>
-            <h3 className="text-2xl font-bold text-white mb-4">对战房间</h3>
-            <p className="text-gray-300">
+            <div className="mb-4 flex justify-center">
+              <svg className="w-16 h-16 transition-colors duration-300 group-hover:fill-[#FBFBFB]" viewBox="0 0 1024 1024" fill="#AEAEAE">
+                <path d="M865.457493 648.964267l57.140054-57.084587c10.0096-9.977173 26.20928-9.974613 36.215466 0.005973l38.9888 38.97856c9.99936 9.995093 10.001067 26.20416 0.00512 36.202667h-0.001706l-113.467734 113.4848 132.292267 132.30592c9.99936 9.9968 9.998507 26.205867 0 36.202667h-0.00256l-38.9888 38.97856c-10.001067 9.98912-26.20672 9.98912-36.20864 0l-132.343467-132.309334-113.517226 113.488214c-10.00192 9.98912-26.207573 9.98912-36.20864 0l-38.9888-38.97856c-9.9968-9.997653-9.99936-26.205013-0.006827-36.20608l57.099947-57.124694L48.657067 208.264533 48.444587 20.48l188.578133 0.159573 628.434773 628.324694z"/>
+                <path d="M274.683733 533.280427l-115.703466 115.68384-57.1392-57.084587c-10.0096-9.977173-26.20928-9.974613-36.215467 0.005973l-38.9888 38.97856c-9.99936 9.995093-10.001067 26.20416-0.00512 36.202667l113.470293 113.4848L7.808 912.8576c-9.998507 9.9968-9.997653 26.205867 0 36.202667l38.992213 38.97856c10.001067 9.98912 26.20672 9.98912 36.20864 0l132.343467-132.309334 113.517227 113.488214c10.00192 9.98912 26.207573 9.98912 36.20864 0l38.9888-38.97856c9.9968-9.997653 9.99936-26.205013 0.006826-36.20608l-57.099946-57.124694 115.684693-115.65312-187.974827-187.974826zM975.994027 20.48l-188.578134 0.159573-222.472533 222.431574 187.987627 187.986773 222.85056-222.793387 0.21248-187.784533z"/>
+              </svg>
+            </div>
+            <h3 className="text-2xl font-bold mb-4 transition-colors duration-300 group-hover:text-[#FBFBFB]" style={{ color: '#AEAEAE', fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif' }}>对战房间</h3>
+            <p className="text-sm italic" style={{ color: '#AEAEAE' }}>
               创建或加入房间，与其他玩家进行实时对战
             </p>
           </Link>
         </div>
 
-        <div className="mt-16 bg-white bg-opacity-10 backdrop-blur-md rounded-xl p-8 max-w-4xl mx-auto">
-          <h2 className="text-3xl font-bold text-white mb-6">游戏规则简介</h2>
-          <div className="text-left text-gray-300 space-y-4">
-            <p>• <strong className="text-white">故事牌：</strong>包含事件和背景，消耗费用后产生各种效果</p>
-            <p>• <strong className="text-white">配角牌：</strong>拥有攻击力和生命值的战斗单位</p>
-            <p>• <strong className="text-white">主角牌：</strong>为你的主角提供持续性增益效果</p>
-            <p>• <strong className="text-white">回合制对战：</strong>玩家轮流进行操作，通过策略取得胜利</p>
-            <p>• <strong className="text-white">卡组构建：</strong>每个卡组包含40张卡牌，同名卡牌最多3张</p>
+        <div className="mt-16 p-8 max-w-4xl mx-auto">
+          <h2 className="text-3xl font-regular mb-6 text-center" style={{ color: '#FBFBFB', fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif' }}>游戏规则简介</h2>
+          <div className="w-full h-px bg-[#C2B79C] mb-6"></div>
+          <div className="text-left space-y-4" style={{ color: '#AEAEAE' }}>
+            <p>• <strong style={{ color: '#AEAEAE' }}>故事牌：</strong>包含事件和背景，消耗费用后产生各种效果</p>
+            <p>• <strong style={{ color: '#AEAEAE' }}>配角牌：</strong>拥有攻击力和生命值的战斗单位</p>
+            <p>• <strong style={{ color: '#AEAEAE' }}>主角牌：</strong>为你的主角提供持续性增益效果</p>
+            <p>• <strong style={{ color: '#AEAEAE' }}>回合制对战：</strong>玩家轮流进行操作，通过策略取得胜利</p>
+            <p>• <strong style={{ color: '#AEAEAE' }}>卡组构建：</strong>每个卡组包含40张卡牌，同名卡牌最多3张</p>
           </div>
         </div>
       </div>

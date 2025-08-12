@@ -54,11 +54,10 @@ const Register: React.FC = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center">
-      <div className="max-w-md w-full space-y-8">
-        <div className="bg-white bg-opacity-10 backdrop-blur-md rounded-xl shadow-2xl p-8">
+      <div className="max-w-md w-full space-y-8" style={{ marginTop: '-150px' }}>
+        <div className="p-8">
           <div className="text-center">
-            <h2 className="text-3xl font-bold text-white mb-2">用户注册</h2>
-            <p className="text-gray-300">创建您的游戏账户</p>
+            <h2 className="text-3xl font-regular" style={{ color: '#FBFBFB', fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif', marginTop: '50px', marginBottom: '20px' }}>叙事人注册</h2>
           </div>
 
           {error && (
@@ -69,7 +68,7 @@ const Register: React.FC = () => {
 
           <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
             <div>
-              <label htmlFor="username" className="block text-sm font-medium text-gray-300 mb-2">
+              <label htmlFor="username" className="block text-sm font-medium mb-2" style={{ color: '#AEAEAE' }}>
                 用户名
               </label>
               <input
@@ -79,13 +78,13 @@ const Register: React.FC = () => {
                 required
                 value={formData.username}
                 onChange={handleChange}
-                className="w-full px-3 py-3 bg-white bg-opacity-10 border border-gray-500 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                className="w-full px-3 py-3 bg-white bg-opacity-10 border border-gray-500 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#4F6A8D] focus:border-transparent"
                 placeholder="请输入用户名"
               />
             </div>
 
             <div>
-              <label htmlFor="gmPassword" className="block text-sm font-medium text-gray-300 mb-2">
+              <label htmlFor="gmPassword" className="block text-sm font-medium mb-2" style={{ color: '#AEAEAE' }}>
                 GM密码（可选）
               </label>
               <input
@@ -94,13 +93,13 @@ const Register: React.FC = () => {
                 type="password"
                 value={formData.gmPassword}
                 onChange={handleChange}
-                className="w-full px-3 py-3 bg-white bg-opacity-10 border border-gray-500 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                className="w-full px-3 py-3 bg-white bg-opacity-10 border border-gray-500 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#4F6A8D] focus:border-transparent"
                 placeholder="输入GM密码可注册为管理员"
               />
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-2">
+              <label htmlFor="password" className="block text-sm font-medium mb-2" style={{ color: '#AEAEAE' }}>
                 密码
               </label>
               <input
@@ -110,13 +109,13 @@ const Register: React.FC = () => {
                 required
                 value={formData.password}
                 onChange={handleChange}
-                className="w-full px-3 py-3 bg-white bg-opacity-10 border border-gray-500 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                className="w-full px-3 py-3 bg-white bg-opacity-10 border border-gray-500 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#4F6A8D] focus:border-transparent"
                 placeholder="请输入密码（至少6位）"
               />
             </div>
 
             <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-300 mb-2">
+              <label htmlFor="confirmPassword" className="block text-sm font-medium mb-2" style={{ color: '#AEAEAE' }}>
                 确认密码
               </label>
               <input
@@ -126,7 +125,7 @@ const Register: React.FC = () => {
                 required
                 value={formData.confirmPassword}
                 onChange={handleChange}
-                className="w-full px-3 py-3 bg-white bg-opacity-10 border border-gray-500 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                className="w-full px-3 py-3 bg-white bg-opacity-10 border border-gray-500 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#4F6A8D] focus:border-transparent"
                 placeholder="请再次输入密码"
               />
             </div>
@@ -134,15 +133,30 @@ const Register: React.FC = () => {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="w-full flex justify-center px-4 border-2 rounded-md shadow-sm text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden group"
+              style={{ 
+                backgroundColor: 'transparent', 
+                color: '#C2B79C',
+                borderColor: '#C2B79C',
+                transition: 'all 0.4s ease'
+              }}
             >
-              {isLoading ? '注册中...' : '注册'}
+              {/* 背景滑动效果 */}
+              <div 
+                className="absolute inset-0 transition-transform duration-500 ease-out transform -translate-x-full group-hover:translate-x-0"
+                style={{ backgroundColor: '#C2B79C' }}
+              ></div>
+              
+              {/* 文字内容 */}
+              <span className="relative z-10 py-3 transition-colors duration-300 group-hover:text-white">
+                {isLoading ? '注册中...' : '注册'}
+              </span>
             </button>
 
             <div className="text-center">
-              <p className="text-gray-300">
+              <p style={{ color: '#AEAEAE' }}>
                 已有账户？{' '}
-                <Link to="/login" className="text-blue-400 hover:text-blue-300 font-medium">
+                <Link to="/login" style={{ color: '#4F6A8D' }} className="font-medium hover:opacity-80 transition-opacity">
                   立即登录
                 </Link>
               </p>
