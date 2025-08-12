@@ -16,9 +16,27 @@ const initialState: CardsState = {
 
 export const fetchCards = createAsyncThunk(
   'cards/fetchCards',
-  async (_, { rejectWithValue }) => {
+  async (params: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    type?: string;
+    category?: string;
+    faction?: string;
+    createdBy?: string;
+  } = {}, { rejectWithValue }) => {
     try {
-      const response = await api.get('/cards');
+      // 如果没有指定limit，则不传递limit参数以获取所有卡牌
+      const apiParams = { ...params };
+      if (!apiParams.limit) { // Fix: Check if limit is falsy (undefined, null, 0)
+        delete apiParams.limit;
+      }
+      
+      const response = await api.cards.getAll(apiParams);
+      // 如果返回的是分页数据，提取cards数组
+      if (response.data.cards) {
+        return response.data.cards;
+      }
       return response.data;
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || '获取卡牌失败');

@@ -4,6 +4,7 @@ import cardsReducer from './slices/cardsSlice';
 import decksReducer from './slices/decksSlice';
 import roomsReducer from './slices/roomsSlice';
 import gameReducer from './slices/gameSlice';
+import configReducer from './slices/configSlice';
 
 export const store = configureStore({
   reducer: {
@@ -12,6 +13,7 @@ export const store = configureStore({
     decks: decksReducer,
     rooms: roomsReducer,
     game: gameReducer,
+    config: configReducer,
   },
 });
 

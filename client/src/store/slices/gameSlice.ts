@@ -19,7 +19,21 @@ const gameSlice = createSlice({
   initialState,
   reducers: {
     setGameState: (state, action: PayloadAction<Partial<GameState>>) => {
-      return { ...state, ...action.payload };
+      // Update top-level game state properties
+      Object.assign(state, action.payload);
+
+      // Explicitly update players to ensure displayedHandCards is handled
+      if (action.payload.players) {
+        state.players = action.payload.players.map(newPlayer => {
+          const existingPlayer = state.players.find(p => p.userId === newPlayer.userId);
+          return {
+            ...existingPlayer,
+            ...newPlayer,
+            // Ensure displayedHandCards is updated
+            displayedHandCards: newPlayer.displayedHandCards || existingPlayer?.displayedHandCards || [],
+          };
+        });
+      }
     },
     updatePlayer: (state, action: PayloadAction<{ index: number; data: Partial<typeof state.players[0]> }>) => {
       const { index, data } = action.payload;

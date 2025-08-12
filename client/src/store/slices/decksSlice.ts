@@ -62,6 +62,42 @@ export const deleteDeck = createAsyncThunk(
   }
 );
 
+export const favoriteDeck = createAsyncThunk(
+  'decks/favoriteDeck',
+  async (id: string, { rejectWithValue }) => {
+    try {
+      await api.decks.favorite(id);
+      return id;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || '收藏卡组失败');
+    }
+  }
+);
+
+export const unfavoriteDeck = createAsyncThunk(
+  'decks/unfavoriteDeck',
+  async (id: string, { rejectWithValue }) => {
+    try {
+      await api.decks.unfavorite(id);
+      return id;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || '取消收藏失败');
+    }
+  }
+);
+
+export const copyDeck = createAsyncThunk(
+  'decks/copyDeck',
+  async (id: string, { rejectWithValue }) => {
+    try {
+      const response = await api.decks.copy(id);
+      return response.data.deck;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || '复制卡组失败');
+    }
+  }
+);
+
 const decksSlice = createSlice({
   name: 'decks',
   initialState,
@@ -95,6 +131,21 @@ const decksSlice = createSlice({
       })
       .addCase(deleteDeck.fulfilled, (state, action) => {
         state.decks = state.decks.filter(deck => deck._id !== action.payload);
+      })
+      .addCase(favoriteDeck.fulfilled, (state, action) => {
+        const deck = state.decks.find(deck => deck._id === action.payload);
+        if (deck) {
+          deck.isFavorited = true;
+        }
+      })
+      .addCase(unfavoriteDeck.fulfilled, (state, action) => {
+        const deck = state.decks.find(deck => deck._id === action.payload);
+        if (deck) {
+          deck.isFavorited = false;
+        }
+      })
+      .addCase(copyDeck.fulfilled, (state, action) => {
+        state.decks.unshift(action.payload);
       });
   },
 });

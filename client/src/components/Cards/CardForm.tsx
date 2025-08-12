@@ -15,7 +15,7 @@ const CardForm: React.FC<CardFormProps> = ({ card, onSubmit, onCancel }) => {
   const { user } = useSelector((state: RootState) => state.auth);
   const [formData, setFormData] = useState({
     name: '',
-    type: 'story' as 'story' | 'character' | 'hero',
+    type: '故事牌' as '故事牌' | '配角牌' | '主角牌' | '关键字效果',
     category: '',
     cost: '',
     attack: 0,
@@ -23,7 +23,7 @@ const CardForm: React.FC<CardFormProps> = ({ card, onSubmit, onCancel }) => {
     effect: '',
     flavor: '',
     image: '',
-    faction: 'neutral', // 初始值设为neutral
+    faction: 'neutral', // 初始值设为neutral，但显示为中立
     isPublic: false
   });
 
@@ -101,8 +101,8 @@ const CardForm: React.FC<CardFormProps> = ({ card, onSubmit, onCancel }) => {
         ...prev,
         category: getDefaultCategory(value as any),
         // 重置攻击和生命值
-        attack: value === 'character' ? prev.attack : 0,
-        health: value === 'character' ? prev.health : 0
+        attack: value === '配角牌' ? prev.attack : 0,
+        health: value === '配角牌' ? prev.health : 0
       }));
     }
   };
@@ -157,9 +157,9 @@ const CardForm: React.FC<CardFormProps> = ({ card, onSubmit, onCancel }) => {
     }
 
     // 验证配角牌的攻击和生命值
-    if (formData.type === 'character') {
-      if (formData.attack < 0 || formData.health <= 0) {
-        alert('配角牌的攻击力不能小于0，生命值必须大于0');
+    if (formData.type === '配角牌') {
+      if (formData.attack < 0 || formData.health < 0) {
+        alert('配角牌的攻击力和生命值不能小于0');
         return;
       }
     }
@@ -195,7 +195,7 @@ const CardForm: React.FC<CardFormProps> = ({ card, onSubmit, onCancel }) => {
         <div className="text-sm text-gray-300 mb-3">
           <p><span className="text-blue-400">类型:</span> {getCardTypeText(formData.type)} - {formData.category}</p>
           <p><span className="text-blue-400">主角:</span> {getFactionText(formData.faction)}</p>
-          {formData.type === 'character' && (
+          {formData.type === '配角牌' && (
             <p><span className="text-blue-400">攻击/生命:</span> 
               <span className="text-red-400 font-bold ml-1">{formData.attack}</span>/
               <span className="text-green-400 font-bold">{formData.health}</span>
@@ -355,7 +355,7 @@ const CardForm: React.FC<CardFormProps> = ({ card, onSubmit, onCancel }) => {
                     />
                   </div>
 
-                  {formData.type === 'character' && (
+                  {formData.type === '配角牌' && (
                     <>
                       <div>
                         <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -381,10 +381,10 @@ const CardForm: React.FC<CardFormProps> = ({ card, onSubmit, onCancel }) => {
                           name="health"
                           value={formData.health}
                           onChange={handleChange}
-                          min="1"
+                          min="0"
                           className="w-full px-3 py-2 bg-white bg-opacity-10 border border-gray-500 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
-                        <p className="text-xs text-gray-400 mt-1">生命值达到0时配角死亡</p>
+                        <p className="text-xs text-gray-400 mt-1">生命值为0的配角会立即死亡</p>
                       </div>
                     </>
                   )}
@@ -408,8 +408,8 @@ const CardForm: React.FC<CardFormProps> = ({ card, onSubmit, onCancel }) => {
                     required
                   />
                   <p className="text-xs text-gray-400 mt-1">
-                    {formData.type === 'story' ? '描述使用后产生的效果' :
-                     formData.type === 'character' ? '描述配角的特殊能力' :
+                    {formData.type === '故事牌' ? '描述使用后产生的效果' :
+                     formData.type === '配角牌' ? '描述配角的特殊能力' :
                      '描述主角获得的持续性效果'}
                   </p>
                 </div>
@@ -501,14 +501,14 @@ const CardForm: React.FC<CardFormProps> = ({ card, onSubmit, onCancel }) => {
             <div className="mt-6 bg-white bg-opacity-10 rounded-lg p-4">
               <h4 className="text-white font-semibold mb-3">📚 卡牌类型说明</h4>
               <div className="text-sm text-gray-300 space-y-2">
-                {formData.type === 'story' && (
+                {formData.type === '故事牌' && (
                   <>
                     <p><strong className="text-blue-400">故事牌</strong> - 用于产生各种游戏效果</p>
                     <p>• <strong>事件:</strong> 需要支付费用主动使用</p>
                     <p>• <strong>背景:</strong> 加入手中时自动使用</p>
                   </>
                 )}
-                {formData.type === 'character' && (
+                  {formData.type === '配角牌' && (
                   <>
                     <p><strong className="text-green-400">配角牌</strong> - 可以进行战斗的单位</p>
                     <p>• 进入故事后才会成为实体单位</p>
@@ -516,7 +516,7 @@ const CardForm: React.FC<CardFormProps> = ({ card, onSubmit, onCancel }) => {
                     <p>• 生命值达到0或以下时死亡</p>
                   </>
                 )}
-                {formData.type === 'hero' && (
+                {formData.type === '主角牌' && (
                   <>
                     <p><strong className="text-purple-400">主战者牌</strong> - 为主战者提供增益</p>
                     <p>• 使用后主战者获得牌面效果</p>

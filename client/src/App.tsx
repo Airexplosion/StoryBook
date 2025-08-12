@@ -15,6 +15,7 @@ import RoomList from './components/Rooms/RoomList';
 import GameRoom from './components/Game/GameRoom';
 import TestPage from './components/Test/TestPage';
 import BatchImportHeroes from './components/Cards/BatchImportHeroes';
+import FactionCollection from './components/Factions/FactionCollection';
 import { ColorProvider, useColor } from './contexts/ColorContext';
 import ColorSettings from './components/Settings/ColorSettings';
 import './index.css';
@@ -93,6 +94,10 @@ const AppContent: React.FC = () => {
           <Route 
             path="/heroes/batch-import" 
             element={user ? <BatchImportHeroes /> : <Navigate to="/login" />} 
+          />
+          <Route 
+            path="/factions" 
+            element={user ? <FactionCollection /> : <Navigate to="/login" />} 
           />
           <Route 
             path="/decks" 

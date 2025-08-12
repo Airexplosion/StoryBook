@@ -25,6 +25,7 @@ const BatchImportCards: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
   const [error, setError] = useState<string>('');
+  const [isOverwriteMode, setIsOverwriteMode] = useState(false); // 新增覆盖模式状态
   const [cardOptions, setCardOptions] = useState<{
     types: string[];
     factions: string[];
@@ -142,6 +143,7 @@ const BatchImportCards: React.FC = () => {
     try {
       const formData = new FormData();
       formData.append('csvFile', file);
+      formData.append('overwriteMode', isOverwriteMode.toString()); // 添加覆盖模式参数
 
       const response = await api.post('/cards/batch-import', formData, {
         headers: {
@@ -152,7 +154,7 @@ const BatchImportCards: React.FC = () => {
       setResult(response.data);
       
       // 导入成功后刷新卡牌列表
-      dispatch(fetchCards() as any);
+      dispatch(fetchCards({}) as any);
       
     } catch (error: any) {
       setError(error.response?.data?.message || '批量导入失败');
@@ -188,7 +190,7 @@ const BatchImportCards: React.FC = () => {
               ) : '加载中...'}
             </li>
             <li>attack和health字段为数字，默认为0</li>
-            <li>isPublic字段为true/false，默认为false</li>
+            <li>isPublic字段为true/false，默认为true（公开）</li>
           </ul>
         </div>
 
@@ -216,6 +218,25 @@ const BatchImportCards: React.FC = () => {
               file:bg-blue-50 file:text-blue-700
               hover:file:bg-blue-100"
           />
+        </div>
+
+        <div className="mb-4">
+          <label className="flex items-center space-x-3">
+            <input
+              type="checkbox"
+              checked={isOverwriteMode}
+              onChange={(e) => setIsOverwriteMode(e.target.checked)}
+              className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded"
+            />
+            <span className="text-sm font-medium text-gray-700">
+              覆盖模式
+            </span>
+          </label>
+          <p className="text-xs text-gray-500 mt-1 ml-7">
+            {isOverwriteMode 
+              ? "⚠️ 启用后将删除您创建的所有现有卡牌，然后导入新的卡牌" 
+              : "默认模式：在现有卡牌基础上添加新卡牌"}
+          </p>
         </div>
 
         {error && (

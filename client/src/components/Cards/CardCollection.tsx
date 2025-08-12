@@ -1,8 +1,7 @@
-import React, { useEffect, useState } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import { useSelector } from 'react-redux';
 import { RootState } from '../../store/store';
-import { fetchCards, createCard, updateCard, deleteCard } from '../../store/slices/cardsSlice';
-import { Card } from '../../types';
+import { Card, PaginatedResponse, PaginationInfo } from '../../types';
 import CardForm from './CardForm';
 import SearchableSelect from '../common/SearchableSelect';
 import api from '../../services/api';
@@ -13,8 +12,30 @@ const CardCollection: React.FC = () => {
   const [filter, setFilter] = useState({
     type: 'all',
     faction: 'all',
-    search: ''
+    cost: 'all',
+    search: '',
+    searchType: 'name' // 'name' 或 'effect'
   });
+  
+  // 添加防抖搜索状态
+  const [searchInput, setSearchInput] = useState(filter.search);
+  const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null);
+
+  // 排序状态
+  const [sortBy, setSortBy] = useState<'none' | 'cost' | 'name' | 'faction'>('none');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+
+  // 分页状态
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(() => {
+    const saved = localStorage.getItem('cardCollection_itemsPerPage');
+    return saved ? parseInt(saved) : 8;
+  });
+  const [cards, setCards] = useState<Card[]>([]);
+  const [pagination, setPagination] = useState<PaginationInfo | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [jumpToPage, setJumpToPage] = useState('');
 
   // 管理员功能状态
   const [showFactionModal, setShowFactionModal] = useState(false);
@@ -44,15 +65,74 @@ const CardCollection: React.FC = () => {
     ]
   });
 
-  const dispatch = useDispatch();
-  const { cards, isLoading, error } = useSelector((state: RootState) => state.cards);
   const { user } = useSelector((state: RootState) => state.auth);
 
+  // 加载卡牌数据
+  const loadCards = async (page: number = currentPage) => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const params = {
+        page,
+        limit: itemsPerPage,
+        search: filter.search || undefined,
+        type: filter.type !== 'all' ? filter.type : undefined,
+        faction: filter.faction !== 'all' ? filter.faction : undefined,
+        cost: filter.cost !== 'all' ? filter.cost : undefined,
+        sortBy: sortBy !== 'none' ? sortBy : undefined,
+        sortDirection: sortDirection.toUpperCase(),
+      };
+
+      const response = await api.cards.getAll(params);
+      const data = response.data;
+      
+      setCards(data.cards || []);
+      setPagination(data.pagination);
+    } catch (err: any) {
+      setError(err.message || '加载卡牌失败');
+      console.error('加载卡牌错误:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // 防抖搜索处理
+  const handleSearchChange = (value: string) => {
+    setSearchInput(value);
+    
+    // 清除之前的定时器
+    if (searchTimeout) {
+      clearTimeout(searchTimeout);
+    }
+    
+    // 设置新的定时器，延长防抖时间以避免中文输入法被打断
+    const newTimeout = setTimeout(() => {
+      setFilter(prev => ({ ...prev, search: value }));
+    }, 1000); // 增加到1000ms防抖延迟，避免中文输入法被打断
+    
+    setSearchTimeout(newTimeout);
+  };
+
   useEffect(() => {
-    dispatch(fetchCards() as any);
+    loadCards(1);
+    setCurrentPage(1);
     // 加载游戏配置
     loadGameConfig();
-  }, [dispatch]);
+  }, [filter]);
+  
+  // 清理定时器
+  useEffect(() => {
+    return () => {
+      if (searchTimeout) {
+        clearTimeout(searchTimeout);
+      }
+    };
+  }, [searchTimeout]);
+
+  useEffect(() => {
+    loadCards(currentPage);
+  }, [currentPage, itemsPerPage, sortBy, sortDirection]);
 
   // 加载游戏配置
   const loadGameConfig = async () => {
@@ -104,28 +184,74 @@ const CardCollection: React.FC = () => {
     }
   };
 
-  const filteredCards = cards.filter(card => {
-    if (filter.type !== 'all' && card.type !== filter.type) return false;
-    if (filter.faction !== 'all' && card.faction !== filter.faction) return false;
-    if (filter.search && !card.name.toLowerCase().includes(filter.search.toLowerCase())) return false;
-    return true;
-  });
+  // 获取所有可用的费用值和统计信息
+  const [availableCosts, setAvailableCosts] = useState<string[]>([]);
+  const [allCards, setAllCards] = useState<Card[]>([]);
+  
+  // 加载所有卡牌用于统计和筛选选项
+  useEffect(() => {
+    const loadAllCardsForStats = async () => {
+      try {
+        // 获取所有卡牌的信息（不分页，不应用筛选条件）
+        const response = await api.cards.getAll({ limit: 10000 }); // 设置一个很大的limit来获取所有数据
+        const allCardsData: Card[] = response.data.cards || [];
+        setAllCards(allCardsData);
+        
+        // 提取费用选项
+        const costs = Array.from(new Set(allCardsData.map((card: Card) => card.cost))).sort((a: string, b: string) => {
+          // 数字费用排在前面，字母费用排在后面
+          const aIsNumber = !isNaN(Number(a));
+          const bIsNumber = !isNaN(Number(b));
+          if (aIsNumber && bIsNumber) return Number(a) - Number(b);
+          if (aIsNumber && !bIsNumber) return -1;
+          if (!aIsNumber && bIsNumber) return 1;
+          return a.localeCompare(b);
+        });
+        setAvailableCosts(costs as string[]);
+      } catch (error) {
+        console.error('加载卡牌统计信息失败:', error);
+      }
+    };
+    
+    loadAllCardsForStats();
+  }, []);
 
   const handleCreateCard = async (cardData: Partial<Card>) => {
-    await dispatch(createCard(cardData) as any);
-    setShowCreateModal(false);
+    try {
+      await api.cards.create(cardData);
+      setShowCreateModal(false);
+      // 重新加载当前页
+      await loadCards(currentPage);
+    } catch (error) {
+      console.error('创建卡牌失败:', error);
+      alert('创建卡牌失败，请重试');
+    }
   };
 
   const handleUpdateCard = async (cardData: Partial<Card>) => {
     if (editingCard) {
-      await dispatch(updateCard({ id: editingCard._id, cardData }) as any);
-      setEditingCard(null);
+      try {
+        await api.cards.update(editingCard._id, cardData);
+        setEditingCard(null);
+        // 重新加载当前页
+        await loadCards(currentPage);
+      } catch (error) {
+        console.error('更新卡牌失败:', error);
+        alert('更新卡牌失败，请重试');
+      }
     }
   };
 
   const handleDeleteCard = async (cardId: string) => {
     if (window.confirm('确定要删除这张卡牌吗？')) {
-      dispatch(deleteCard(cardId) as any);
+      try {
+        await api.cards.delete(cardId);
+        // 重新加载当前页
+        await loadCards(currentPage);
+      } catch (error) {
+        console.error('删除卡牌失败:', error);
+        alert('删除卡牌失败，请重试');
+      }
     }
   };
 
@@ -157,7 +283,7 @@ const CardCollection: React.FC = () => {
         <p><span className="text-blue-400">类型:</span> {getCardTypeText(card.type)}</p>
         <p><span className="text-blue-400">类别:</span> {card.category}</p>
         <p><span className="text-blue-400">主角:</span> {getFactionText(card.faction)}</p>
-        {card.type === 'character' && (
+        {card.type === '配角牌' && (
           <p><span className="text-blue-400">攻击/生命:</span> 
             <span className="text-red-400 font-bold ml-1">{card.attack}</span>/
             <span className="text-green-400 font-bold">{card.health}</span>
@@ -261,14 +387,16 @@ const CardCollection: React.FC = () => {
             </>
           )}
           
-          {/* 创建卡牌按钮 */}
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors flex items-center space-x-2"
-          >
-            <span>✨</span>
-            <span>创建卡牌</span>
-          </button>
+          {/* 创建卡牌按钮 - 仅管理员可见 */}
+          {user?.isAdmin && (
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors flex items-center space-x-2"
+            >
+              <span>✨</span>
+              <span>创建卡牌</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -279,22 +407,44 @@ const CardCollection: React.FC = () => {
       )}
 
       {/* 筛选器 */}
-      <div className="bg-white bg-opacity-10 backdrop-blur-md rounded-xl p-6 mb-8 relative z-10">
-        <h3 className="text-white font-semibold mb-4">🔍 卡牌筛选</h3>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="bg-white bg-opacity-10 backdrop-blur-md rounded-xl p-6 mb-8 relative z-20">
+        <h3 className="text-white font-semibold mb-4 flex items-center">
+          <span className="mr-2">🔍</span>
+          卡牌筛选
+        </h3>
+        
+        {/* 第一行：搜索框和搜索类型 */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">搜索卡牌</label>
+            <label className="block text-sm font-medium text-gray-300 mb-2">🔎 搜索卡牌</label>
             <input
               type="text"
-              value={filter.search}
-              onChange={(e) => setFilter({...filter, search: e.target.value})}
+              value={searchInput}
+              onChange={(e) => handleSearchChange(e.target.value)}
               className="w-full px-3 py-2 bg-white bg-opacity-10 border border-gray-500 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="搜索卡牌名称..."
+              placeholder="输入卡牌名称或效果..."
             />
           </div>
-
+          
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">卡牌类型</label>
+            <label className="block text-sm font-medium text-gray-300 mb-2">🎯 搜索类型</label>
+            <SearchableSelect
+              options={[
+                { value: 'name', label: '搜索卡牌名称' },
+                { value: 'effect', label: '搜索卡牌效果' }
+              ]}
+              value={filter.searchType}
+              onChange={(value) => setFilter({...filter, searchType: value})}
+              placeholder="选择搜索类型..."
+              className="w-full"
+            />
+          </div>
+        </div>
+
+        {/* 第二行：筛选选项 */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">📋 卡牌类型</label>
             <SearchableSelect
               options={[
                 { value: 'all', label: '全部类型' },
@@ -308,7 +458,7 @@ const CardCollection: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">卡牌主角</label>
+            <label className="block text-sm font-medium text-gray-300 mb-2">⭐ 卡牌主角</label>
             <SearchableSelect
               options={[
                 { value: 'all', label: '全部主角' },
@@ -321,45 +471,362 @@ const CardCollection: React.FC = () => {
             />
           </div>
 
-          <div className="flex items-end">
-            <button
-              onClick={() => setFilter({ type: 'all', faction: 'all', search: '' })}
-              className="w-full bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded transition-colors"
-            >
-              🔄 重置筛选
-            </button>
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">💰 费用筛选</label>
+            <SearchableSelect
+              options={[
+                { value: 'all', label: '全部费用' },
+                ...availableCosts.map(cost => ({ value: cost, label: cost }))
+              ]}
+              value={filter.cost}
+              onChange={(value) => setFilter({...filter, cost: value})}
+              placeholder="选择费用..."
+              className="w-full"
+            />
           </div>
+        </div>
+
+        {/* 快速重置按钮 */}
+        <div className="flex justify-end">
+          <button
+            onClick={() => {
+              setFilter({ type: 'all', faction: 'all', cost: 'all', search: '', searchType: 'name' });
+              setSearchInput(''); // 同时重置搜索输入框
+              setSortBy('none'); // 重置排序
+              setSortDirection('asc'); // 重置排序方向
+            }}
+            className="text-sm text-gray-400 hover:text-white transition-colors px-3 py-1 rounded border border-gray-600 hover:border-gray-500"
+          >
+            🔄 重置筛选
+          </button>
+        </div>
+      </div>
+
+      {/* 排序选项 */}
+      <div className="bg-white bg-opacity-10 backdrop-blur-md rounded-xl p-6 mb-8 relative z-10">
+        <h3 className="text-white font-semibold mb-4 flex items-center">
+          <span className="mr-2">⬆️⬇️</span>
+          卡牌排序
+        </h3>
+        <div className="flex flex-wrap gap-3">
+          <button
+            onClick={() => {
+              if (sortBy === 'cost') {
+                setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+              } else {
+                setSortBy('cost');
+                setSortDirection('asc');
+              }
+            }}
+            className={`px-4 py-2 rounded-lg font-semibold transition-colors flex items-center space-x-2 ${
+              sortBy === 'cost' ? 'bg-blue-600 text-white' : 'bg-gray-600 hover:bg-gray-700 text-gray-200'
+            }`}
+          >
+            <span>💰 费用</span>
+            {sortBy === 'cost' && (
+              <span>{sortDirection === 'asc' ? '⬆️' : '⬇️'}</span>
+            )}
+          </button>
+          <button
+            onClick={() => {
+              if (sortBy === 'name') {
+                setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+              } else {
+                setSortBy('name');
+                setSortDirection('asc');
+              }
+            }}
+            className={`px-4 py-2 rounded-lg font-semibold transition-colors flex items-center space-x-2 ${
+              sortBy === 'name' ? 'bg-blue-600 text-white' : 'bg-gray-600 hover:bg-gray-700 text-gray-200'
+            }`}
+          >
+            <span>🅰️ 首字母</span>
+            {sortBy === 'name' && (
+              <span>{sortDirection === 'asc' ? '⬆️' : '⬇️'}</span>
+            )}
+          </button>
+          <button
+            onClick={() => {
+              if (sortBy === 'faction') {
+                setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+              } else {
+                setSortBy('faction');
+                setSortDirection('asc');
+              }
+            }}
+            className={`px-4 py-2 rounded-lg font-semibold transition-colors flex items-center space-x-2 ${
+              sortBy === 'faction' ? 'bg-blue-600 text-white' : 'bg-gray-600 hover:bg-gray-700 text-gray-200'
+            }`}
+          >
+            <span>🦸 主角</span>
+            {sortBy === 'faction' && (
+              <span>{sortDirection === 'asc' ? '⬆️' : '⬇️'}</span>
+            )}
+          </button>
+          {sortBy !== 'none' && (
+            <button
+              onClick={() => {
+                setSortBy('none');
+                setSortDirection('asc');
+              }}
+              className="px-4 py-2 rounded-lg font-semibold transition-colors bg-red-600 hover:bg-red-700 text-white"
+            >
+              清除排序
+            </button>
+          )}
         </div>
       </div>
 
       {/* 统计信息 */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <div className="bg-white bg-opacity-10 backdrop-blur-md rounded-xl p-4 text-center">
-          <div className="text-2xl font-bold text-blue-400">{cards.filter(c => c.type === 'story').length}</div>
+          <div className="text-2xl font-bold text-blue-400">{allCards.filter(c => getCardTypeText(c.type) === '故事牌').length}</div>
           <div className="text-gray-300 text-sm">故事牌</div>
         </div>
         <div className="bg-white bg-opacity-10 backdrop-blur-md rounded-xl p-4 text-center">
-          <div className="text-2xl font-bold text-green-400">{cards.filter(c => c.type === 'character').length}</div>
+          <div className="text-2xl font-bold text-green-400">{allCards.filter(c => getCardTypeText(c.type) === '配角牌').length}</div>
           <div className="text-gray-300 text-sm">配角牌</div>
         </div>
         <div className="bg-white bg-opacity-10 backdrop-blur-md rounded-xl p-4 text-center">
-          <div className="text-2xl font-bold text-purple-400">{cards.filter(c => c.type === 'hero').length}</div>
+          <div className="text-2xl font-bold text-purple-400">{allCards.filter(c => getCardTypeText(c.type) === '主角牌').length}</div>
           <div className="text-gray-300 text-sm">主角牌</div>
         </div>
         <div className="bg-white bg-opacity-10 backdrop-blur-md rounded-xl p-4 text-center">
-          <div className="text-2xl font-bold text-yellow-400">{cards.length}</div>
+          <div className="text-2xl font-bold text-yellow-400">{allCards.length}</div>
           <div className="text-gray-300 text-sm">总卡牌数</div>
         </div>
       </div>
 
       {/* 卡牌列表 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {filteredCards.map((card) => (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
+        {cards.map((card) => (
           <CardComponent key={card._id} card={card} />
         ))}
       </div>
 
-      {filteredCards.length === 0 && !isLoading && (
+      {/* 分页控件 */}
+      {pagination && pagination.totalPages > 1 && (
+        <div className="bg-white bg-opacity-10 backdrop-blur-md rounded-xl p-6 mb-8">
+          {/* 分页设置行 */}
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-4">
+              <div className="text-gray-300 text-sm">
+                显示第 {((pagination.currentPage - 1) * pagination.itemsPerPage) + 1} - {Math.min(pagination.currentPage * pagination.itemsPerPage, pagination.totalItems)} 项，共 {pagination.totalItems} 项
+              </div>
+              
+              {/* 每页显示数量选择 */}
+              <div className="flex items-center space-x-2">
+                <span className="text-gray-300 text-sm">每页显示:</span>
+                <select
+                  value={itemsPerPage}
+                  onChange={(e) => {
+                    const newItemsPerPage = parseInt(e.target.value);
+                    setItemsPerPage(newItemsPerPage);
+                    setCurrentPage(1); // 重置到第一页
+                    // 保存到本地存储
+                    localStorage.setItem('cardCollection_itemsPerPage', newItemsPerPage.toString());
+                    // 滚动到页面顶部
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  className="bg-white bg-opacity-10 border border-gray-500 rounded px-2 py-1 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value={8} className="bg-gray-800">8</option>
+                  <option value={12} className="bg-gray-800">12</option>
+                  <option value={16} className="bg-gray-800">16</option>
+                  <option value={20} className="bg-gray-800">20</option>
+                  <option value={24} className="bg-gray-800">24</option>
+                  <option value={28} className="bg-gray-800">28</option>
+                </select>
+              </div>
+            </div>
+            
+            {/* 页码跳转 */}
+            <div className="flex items-center space-x-2">
+              <span className="text-gray-300 text-sm">跳转到:</span>
+              <input
+                type="number"
+                min="1"
+                max={pagination.totalPages}
+                value={jumpToPage}
+                onChange={(e) => setJumpToPage(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    const page = parseInt(jumpToPage);
+                    if (page >= 1 && page <= pagination.totalPages) {
+                      setCurrentPage(page);
+                      setJumpToPage('');
+                      // 滚动到页面顶部
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }
+                  }
+                }}
+                className="w-16 px-2 py-1 bg-white bg-opacity-10 border border-gray-500 rounded text-white text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder={pagination.currentPage.toString()}
+              />
+              <button
+                onClick={() => {
+                  const page = parseInt(jumpToPage);
+                  if (page >= 1 && page <= pagination.totalPages) {
+                    setCurrentPage(page);
+                    setJumpToPage('');
+                    // 滚动到页面顶部
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }
+                }}
+                disabled={!jumpToPage || parseInt(jumpToPage) < 1 || parseInt(jumpToPage) > pagination.totalPages}
+                className={`px-3 py-1 rounded text-sm transition-colors ${
+                  jumpToPage && parseInt(jumpToPage) >= 1 && parseInt(jumpToPage) <= pagination.totalPages
+                    ? 'bg-green-600 hover:bg-green-700 text-white'
+                    : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                }`}
+              >
+                跳转
+              </button>
+            </div>
+          </div>
+          
+          {/* 分页按钮行 */}
+          <div className="flex items-center justify-center space-x-2">
+            {/* 上一页按钮 */}
+            <button
+              onClick={() => {
+                const newPage = Math.max(1, currentPage - 1);
+                setCurrentPage(newPage);
+                // 滚动到页面顶部
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              disabled={currentPage <= 1}
+              className={`px-3 py-2 rounded transition-colors ${
+                currentPage > 1
+                  ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                  : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+              }`}
+            >
+              上一页
+            </button>
+
+            {/* 页码按钮 */}
+            <div className="flex items-center space-x-1">
+              {(() => {
+                const pages = [];
+                const totalPages = pagination.totalPages;
+                const current = pagination.currentPage;
+                
+                // 显示逻辑：始终显示第1页，当前页附近的页码，和最后一页
+                let startPage = Math.max(1, current - 2);
+                let endPage = Math.min(totalPages, current + 2);
+                
+                // 如果当前页靠近开始，显示更多后面的页码
+                if (current <= 3) {
+                  endPage = Math.min(totalPages, 5);
+                }
+                
+                // 如果当前页靠近结束，显示更多前面的页码
+                if (current >= totalPages - 2) {
+                  startPage = Math.max(1, totalPages - 4);
+                }
+                
+                // 添加第一页
+                if (startPage > 1) {
+                  pages.push(
+                    <button
+                      key={1}
+                      onClick={() => {
+                        setCurrentPage(1);
+                        // 滚动到页面顶部
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                      className={`px-3 py-2 rounded transition-colors ${
+                        current === 1
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-600 hover:bg-gray-500 text-gray-300'
+                      }`}
+                    >
+                      1
+                    </button>
+                  );
+                  
+                  if (startPage > 2) {
+                    pages.push(
+                      <span key="ellipsis1" className="text-gray-400 px-2">...</span>
+                    );
+                  }
+                }
+                
+                // 添加中间页码
+                for (let i = startPage; i <= endPage; i++) {
+                  pages.push(
+                    <button
+                      key={i}
+                      onClick={() => {
+                        setCurrentPage(i);
+                        // 滚动到页面顶部
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                      className={`px-3 py-2 rounded transition-colors ${
+                        current === i
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-600 hover:bg-gray-500 text-gray-300'
+                      }`}
+                    >
+                      {i}
+                    </button>
+                  );
+                }
+                
+                // 添加最后一页
+                if (endPage < totalPages) {
+                  if (endPage < totalPages - 1) {
+                    pages.push(
+                      <span key="ellipsis2" className="text-gray-400 px-2">...</span>
+                    );
+                  }
+                  
+                  pages.push(
+                    <button
+                      key={totalPages}
+                      onClick={() => {
+                        setCurrentPage(totalPages);
+                        // 滚动到页面顶部
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                      className={`px-3 py-2 rounded transition-colors ${
+                        current === totalPages
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-600 hover:bg-gray-500 text-gray-300'
+                      }`}
+                    >
+                      {totalPages}
+                    </button>
+                  );
+                }
+                
+                return pages;
+              })()}
+            </div>
+
+            {/* 下一页按钮 */}
+            <button
+              onClick={() => {
+                const newPage = Math.min(pagination.totalPages, currentPage + 1);
+                setCurrentPage(newPage);
+                // 滚动到页面顶部
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              disabled={currentPage >= pagination.totalPages}
+              className={`px-3 py-2 rounded transition-colors ${
+                currentPage < pagination.totalPages
+                  ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                  : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+              }`}
+            >
+              下一页
+            </button>
+          </div>
+        </div>
+      )}
+
+      {cards.length === 0 && !isLoading && (
         <div className="text-center py-20">
           <div className="text-6xl mb-4">🃏</div>
           <h3 className="text-2xl font-bold text-white mb-4">
@@ -407,9 +874,10 @@ const CardCollection: React.FC = () => {
                     <span className="text-white">{type.name}</span>
                   </div>
                   <button
-                    onClick={() => {
+                    onClick={async () => {
                       const newTypes = customTypes.filter((_, i) => i !== index);
                       setCustomTypes(newTypes);
+                      await saveTypeConfig(newTypes); // 添加这一行来保存更改
                     }}
                     className="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-sm"
                   >
@@ -487,7 +955,7 @@ const CardCollection: React.FC = () => {
                     </button>
                   </div>
                   {faction.description && (
-                    <div className="text-gray-300 text-sm">
+                    <div className="text-gray-300 text-sm whitespace-pre-wrap">
                       效果描述: {faction.description}
                     </div>
                   )}

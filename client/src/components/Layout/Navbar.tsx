@@ -53,6 +53,15 @@ const Navbar: React.FC = () => {
               >
                 卡牌集
               </Link>
+              <Link
+                to="/factions"
+                className="px-3 py-2 rounded-md transition-colors duration-300"
+                style={{ color: '#AEAEAE', fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif' }}
+                onMouseEnter={(e) => e.currentTarget.style.color = '#FBFBFB'}
+                onMouseLeave={(e) => e.currentTarget.style.color = '#AEAEAE'}
+              >
+                主角集
+              </Link>
               <Link 
                 to="/rules" 
                 className="px-3 py-2 rounded-md transition-colors duration-300"

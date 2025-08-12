@@ -7,26 +7,23 @@ const router = express.Router();
 // 默认配置数据
 const defaultConfig = {
   factions: [
-    { id: 'neutral', name: '中立' },
-    { id: 'hero1', name: '主角1专属' },
-    { id: 'hero2', name: '主角2专属' },
-    { id: 'hero3', name: '主角3专属' }
+    { id: '中立', name: '中立', description: '不属于任何特定主角的通用卡牌，所有玩家都可以使用' }
   ],
   types: [
-    { id: 'story', name: '故事牌' },
-    { id: 'character', name: '配角牌' },
-    { id: 'hero', name: '主角牌' }
+    { id: '故事牌', name: '故事牌' },
+    { id: '配角牌', name: '配角牌' },
+    { id: '主角牌', name: '主角牌' }
   ],
   categories: {
     story: [
-      { id: 'event', name: '事件', description: '需要支付费用主动使用' },
-      { id: 'background', name: '背景', description: '加入手中时自动使用' }
+      { id: '事件', name: '事件', description: '需要支付费用主动使用' },
+      { id: '背景', name: '背景', description: '加入手中时自动使用' }
     ],
     character: [
-      { id: 'character', name: '配角', description: '进入故事后才会成为实体单位' }
+      { id: '配角', name: '配角', description: '进入故事后才会成为实体单位' }
     ],
     hero: [
-      { id: 'hero', name: '主角', description: '为主角提供持续性效果' }
+      { id: '主角', name: '主角', description: '为主角提供持续性效果' }
     ]
   }
 };

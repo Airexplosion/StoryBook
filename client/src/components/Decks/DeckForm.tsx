@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, Deck, DeckCard } from '../../types';
 import SearchableSelect from '../common/SearchableSelect';
 import api from '../../services/api';
@@ -34,8 +34,11 @@ const DeckForm: React.FC<DeckFormProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [factionFilter, setFactionFilter] = useState('all'); // 新增主角筛选状态
+  const [costFilter, setCostFilter] = useState('all'); // 新增费用筛选状态
+  const [searchType, setSearchType] = useState('name'); // 新增搜索类型状态
   const [selectedChampion, setSelectedChampion] = useState('');
   const [championDescription, setChampionDescription] = useState('');
+  const [viewingCardId, setViewingCardId] = useState<string | null>(null);
 
   // 获取主角名称的辅助函数
   const getFactionText = (factionId: string) => {
@@ -43,23 +46,46 @@ const DeckForm: React.FC<DeckFormProps> = ({
     return faction ? faction.name : factionId;
   };
 
-  // 获取可用卡牌（主角卡 + 中立卡 + 选中主角的专属卡）
-  const availableCards = cards.filter(card => {
-    // 主角卡现在也可以加入卡组
-    if (card.type === 'hero') return true;
-    if (card.faction === 'neutral') return true;
+  // 获取可用卡牌（所有卡牌都可用）
+  const availableCards = useMemo(() => {
+    if (!Array.isArray(cards) || cards.length === 0) {
+      return [];
+    }
     
-    // 移除对selectedHero的依赖，所有卡牌都可用
-    return true;
-  });
+    // 直接返回所有卡牌，不进行任何筛选
+    return cards;
+  }, [cards]);
 
   // 筛选卡牌
-  const filteredCards = availableCards.filter(card => {
-    if (searchTerm && !card.name.toLowerCase().includes(searchTerm.toLowerCase())) return false;
-    if (filterType !== 'all' && card.type !== filterType) return false;
-    if (factionFilter !== 'all' && card.faction !== factionFilter) return false;
-    return true;
-  });
+  const filteredCards = useMemo(() => {
+    return availableCards.filter(card => {
+      if (filterType !== 'all' && card.type !== filterType) return false;
+      if (factionFilter !== 'all' && card.faction !== factionFilter) return false;
+      if (costFilter !== 'all' && card.cost !== costFilter) return false;
+      if (searchTerm) {
+        const searchLower = searchTerm.toLowerCase();
+        if (searchType === 'name') {
+          if (!card.name.toLowerCase().includes(searchLower)) return false;
+        } else if (searchType === 'effect') {
+          if (!card.effect.toLowerCase().includes(searchLower)) return false;
+        }
+      }
+      return true;
+    });
+  }, [availableCards, filterType, factionFilter, costFilter, searchTerm, searchType]);
+
+  // 获取所有可用的费用值
+  const availableCosts = useMemo(() => {
+    return Array.from(new Set(availableCards.map(card => card.cost))).sort((a, b) => {
+      // 数字费用排在前面，字母费用排在后面
+      const aIsNumber = !isNaN(Number(a));
+      const bIsNumber = !isNaN(Number(b));
+      if (aIsNumber && bIsNumber) return Number(a) - Number(b);
+      if (aIsNumber && !bIsNumber) return -1;
+      if (!aIsNumber && bIsNumber) return 1;
+      return a.localeCompare(b);
+    });
+  }, [availableCards]);
 
   useEffect(() => {
     if (deck) {
@@ -92,7 +118,7 @@ const DeckForm: React.FC<DeckFormProps> = ({
 
   const addCard = (cardId: string) => {
     const currentCount = selectedCards.get(cardId) || 0;
-    const card = cards.find(c => c._id === cardId);
+    const card = Array.isArray(cards) ? cards.find(c => c._id === cardId) : null;
     
     if (!card) return;
     
@@ -136,9 +162,9 @@ const DeckForm: React.FC<DeckFormProps> = ({
     }
     
     const deckCards: DeckCard[] = Array.from(selectedCards.entries()).map(([cardId, count]) => ({
-      card: cards.find(c => c._id === cardId)!,
+      card: Array.isArray(cards) ? cards.find(c => c._id === cardId)! : null!,
       count
-    }));
+    })).filter(deckCard => deckCard.card !== null);
     
     const championFaction = selectedChampion ? customFactions.find(f => f.id === selectedChampion) : null;
     
@@ -215,7 +241,15 @@ const DeckForm: React.FC<DeckFormProps> = ({
                   ...customFactions.map(faction => ({ value: faction.id, label: faction.name }))
                 ]}
                 value={selectedChampion}
-                onChange={(value) => setSelectedChampion(value)}
+                onChange={(value) => {
+                  setSelectedChampion(value);
+                  const championFaction = customFactions.find(f => f.id === value);
+                  if (championFaction && championFaction.description) {
+                    setChampionDescription(championFaction.description);
+                  } else {
+                    setChampionDescription('');
+                  }
+                }}
                 placeholder="选择主角..."
                 className="w-full"
               />
@@ -254,7 +288,7 @@ const DeckForm: React.FC<DeckFormProps> = ({
               {(() => {
                 const championFaction = customFactions.find(f => f.id === selectedChampion);
                 return championFaction && championFaction.description && (
-                  <div className="text-xs text-gray-400 mt-1">
+                  <div className="text-xs text-gray-400 mt-1 whitespace-pre-wrap">
                     默认效果: {championFaction.description}
                   </div>
                 );
@@ -266,7 +300,7 @@ const DeckForm: React.FC<DeckFormProps> = ({
             {/* 卡牌选择区域 */}
             <div className="lg:col-span-2 flex flex-col overflow-hidden">
               <div className="mb-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                   <div>
                     <input
                       type="text"
@@ -301,6 +335,33 @@ const DeckForm: React.FC<DeckFormProps> = ({
                     />
                   </div>
                 </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <SearchableSelect
+                      options={[
+                        { value: 'all', label: '全部费用' },
+                        ...availableCosts.map(cost => ({ value: cost, label: cost }))
+                      ]}
+                      value={costFilter}
+                      onChange={(value) => setCostFilter(value)}
+                      placeholder="选择费用..."
+                      className="w-full"
+                    />
+                  </div>
+                  <div>
+                    <SearchableSelect
+                      options={[
+                        { value: 'name', label: '搜索卡牌名称' },
+                        { value: 'effect', label: '搜索卡牌效果' }
+                      ]}
+                      value={searchType}
+                      onChange={(value) => setSearchType(value)}
+                      placeholder="选择搜索类型..."
+                      className="w-full"
+                    />
+                  </div>
+                </div>
               </div>
 
               <div className="flex-1 overflow-y-auto">
@@ -318,11 +379,11 @@ const DeckForm: React.FC<DeckFormProps> = ({
                         
                         <div className="text-sm text-gray-300 mb-2">
                           <p>
-                            {card.type === 'story' ? '故事牌' : 
-                             card.type === 'character' ? '配角牌' : '主角牌'} - {card.category}
+                            {card.type === '故事牌' ? '故事牌' : 
+                             card.type === '配角牌' ? '配角牌' : '主角牌'} - {card.category}
                           </p>
                           <p>主角: {getFactionText(card.faction)}</p>
-                          {card.type === 'character' && (
+                          {card.type === '配角牌' && (
                             <p>攻击/生命: {card.attack}/{card.health}</p>
                           )}
                           <p className="text-green-400 text-xs">{card.effect}</p>
@@ -367,7 +428,7 @@ const DeckForm: React.FC<DeckFormProps> = ({
               <div className="flex-1 overflow-y-auto">
                 <div className="space-y-2">
                   {Array.from(selectedCards.entries()).map(([cardId, count]) => {
-                    const card = cards.find(c => c._id === cardId);
+                    const card = Array.isArray(cards) ? cards.find(c => c._id === cardId) : null;
                     if (!card) return null;
                     
                     return (
@@ -376,10 +437,22 @@ const DeckForm: React.FC<DeckFormProps> = ({
                           <span className="text-white font-semibold text-sm">{card.name}</span>
                           <span className="text-yellow-400 text-sm">{card.cost}</span>
                         </div>
-                        <div className="flex justify-between items-center">
+                        <div className="flex justify-between items-center mb-2">
                           <span className="text-gray-300 text-xs">
-                            {card.type === 'story' ? '故事' : 
-                             card.type === 'character' ? '配角' : '主角'} - {card.category}
+                            {card.type === '故事牌' ? '故事' : 
+                             card.type === '配角牌' ? '配角' : '主角'} - {card.category}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setViewingCardId(cardId)}
+                            className="text-blue-400 hover:text-blue-300 text-xs underline"
+                          >
+                            查看详情
+                          </button>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-gray-400 text-xs">
+                            主角: {getFactionText(card.faction)}
                           </span>
                           <div className="flex items-center space-x-1">
                             <button
@@ -406,6 +479,61 @@ const DeckForm: React.FC<DeckFormProps> = ({
                   })}
                 </div>
               </div>
+
+              {/* 费用分布图 - 小版本 */}
+              {Array.from(selectedCards.entries()).length > 0 && (
+                <div className="mt-4 bg-white bg-opacity-10 rounded-lg p-3">
+                  <h4 className="text-sm font-semibold text-white mb-2">📊 费用分布</h4>
+                  <div className="flex items-end justify-between space-x-1 h-16">
+                    {(() => {
+                      // 计算各个费用的卡牌数量，包含0-9, 10, 10+, X
+                      const costDistribution: { [key: string]: number } = { 
+                        '0': 0, '1': 0, '2': 0, '3': 0, '4': 0, '5': 0, '6': 0, '7': 0, '8': 0, '9': 0, '10': 0, '10+': 0, 'X': 0 
+                      };
+                      
+                      Array.from(selectedCards.entries()).forEach(([cardId, count]) => {
+                        const card = Array.isArray(cards) ? cards.find(c => c._id === cardId) : null;
+                        if (!card) return;
+                        
+                        const cost = card.cost;
+                        if (cost === 'X') {
+                          costDistribution['X'] += count;
+                        } else {
+                          const numericCost = parseInt(cost);
+                          if (!isNaN(numericCost)) {
+                            if (numericCost <= 9) {
+                              costDistribution[cost] += count;
+                            } else if (numericCost === 10) {
+                              costDistribution['10'] += count;
+                            } else {
+                              costDistribution['10+'] += count;
+                            }
+                          }
+                        }
+                      });
+                      
+                      // 找到最大值用于计算比例
+                      const maxCount = Math.max(...Object.values(costDistribution));
+                      
+                      return Object.entries(costDistribution).map(([cost, count]) => (
+                        <div key={cost} className="flex flex-col items-center flex-1">
+                          <div className="text-xs text-white font-semibold mb-1" style={{ minHeight: '14px' }}>
+                            {count > 0 ? count : ''}
+                          </div>
+                          <div 
+                            className="bg-gradient-to-t from-blue-500 to-purple-500 w-full rounded-t transition-all duration-300"
+                            style={{ 
+                              height: maxCount > 0 ? `${Math.max((count / maxCount) * 40, count > 0 ? 4 : 0)}px` : '0px',
+                              minWidth: '8px'
+                            }}
+                          />
+                          <div className="text-xs text-gray-300 mt-1" style={{ fontSize: '10px' }}>{cost}</div>
+                        </div>
+                      ));
+                    })()}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -427,6 +555,65 @@ const DeckForm: React.FC<DeckFormProps> = ({
             </button>
           </div>
         </form>
+
+        {/* 卡牌详情模态框 */}
+        {viewingCardId && (() => {
+          const card = Array.isArray(cards) ? cards.find(c => c._id === viewingCardId) : null;
+          if (!card) return null;
+          
+          return (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+              <div className="bg-white bg-opacity-15 backdrop-blur-md rounded-xl p-6 max-w-md w-full">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-xl font-bold text-white">{card.name}</h3>
+                  <button
+                    onClick={() => setViewingCardId(null)}
+                    className="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded transition-colors text-sm"
+                  >
+                    关闭
+                  </button>
+                </div>
+                
+                <div className={`rounded-lg p-4 border-2 ${
+                  card.type === '故事牌' ? 'bg-gradient-to-br from-blue-800 to-blue-900 border-blue-500' :
+                  card.type === '配角牌' ? 'bg-gradient-to-br from-green-800 to-green-900 border-green-500' : 
+                  'bg-gradient-to-br from-purple-800 to-purple-900 border-purple-500'
+                }`}>
+                  <div className="flex justify-between items-start mb-3">
+                    <div>
+                      <h4 className="font-semibold text-white text-lg">{card.name}</h4>
+                      <p className="text-sm text-gray-300">
+                        {card.type === '故事牌' ? '📜 故事牌' : 
+                         card.type === '配角牌' ? '👥 配角牌' : '⭐ 主角牌'} - {card.category}
+                      </p>
+                    </div>
+                    <span className="text-yellow-400 font-bold text-xl">{card.cost}</span>
+                  </div>
+                  
+                  <div className="text-sm text-gray-300 mb-3">
+                    <p><strong>主角:</strong> {getFactionText(card.faction)}</p>
+                    {card.type === '配角牌' && (
+                      <p><strong>攻击/生命:</strong> <span className="text-red-400">{card.attack}</span>/<span className="text-green-400">{card.health}</span></p>
+                    )}
+                  </div>
+                  
+                  <div className="border-t border-gray-600 pt-3">
+                    <p className="text-green-400 text-sm font-semibold mb-2">效果:</p>
+                    <p className="text-white text-sm whitespace-pre-wrap">{card.effect}</p>
+                  </div>
+                  
+                  {selectedCards.has(card._id) && (
+                    <div className="border-t border-gray-600 pt-3 mt-3">
+                      <p className="text-blue-400 text-sm">
+                        卡组中数量: <span className="font-bold">{selectedCards.get(card._id)}张</span>
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
       </div>
     </div>
   );

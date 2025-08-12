@@ -72,7 +72,15 @@ router.get('/', async (req, res) => {
 // 创建房间
 router.post('/', auth, async (req, res) => {
   try {
+    // 验证用户身份
+    if (!req.userId || !req.user) {
+      console.error('创建房间时用户身份验证失败:', { userId: req.userId, user: req.user });
+      return res.status(401).json({ message: '用户身份验证失败' });
+    }
+
     const { name } = req.body;
+
+    console.log(`[CREATE-ROOM] 用户 ${req.user.username}(${req.userId}) 创建房间:`, name);
 
     const room = await Room.create({
       name,
@@ -91,6 +99,22 @@ router.post('/', auth, async (req, res) => {
         attributes: ['id', 'username']
       }]
     });
+
+    // 验证创建者信息
+    if (!roomWithCreator.creator) {
+      console.error('房间创建后无法找到创建者信息:', { roomId: room.id, createdBy: req.userId });
+      return res.status(500).json({ message: '房间创建失败：无法关联创建者' });
+    }
+
+    // 验证创建者ID匹配
+    if (roomWithCreator.creator.id !== req.userId) {
+      console.error('房间创建者ID不匹配:', { 
+        expectedUserId: req.userId, 
+        actualCreatorId: roomWithCreator.creator.id,
+        roomId: room.id 
+      });
+      return res.status(500).json({ message: '房间创建失败：创建者信息不匹配' });
+    }
 
     // 格式化返回数据
     const formattedRoom = {
@@ -117,6 +141,8 @@ router.post('/', auth, async (req, res) => {
       isActive: roomWithCreator.isActive,
       createdAt: roomWithCreator.createdAt
     };
+
+    console.log(`[CREATE-ROOM] 房间创建成功: ${formattedRoom.name}, 创建者: ${formattedRoom.createdBy.username}(${formattedRoom.createdBy._id})`);
 
     res.status(201).json(formattedRoom);
   } catch (error) {

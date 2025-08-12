@@ -91,6 +91,15 @@ io.on('connection', (socket) => {
   socket.on('join-room', async (data) => {
     try {
       const { roomId, userId, username } = data;
+      
+      // 验证用户ID和用户名
+      if (!userId || !username) {
+        socket.emit('error', { message: '用户信息不完整' });
+        return;
+      }
+      
+      console.log(`[JOIN-ROOM] 用户尝试加入房间: userId=${userId}, username=${username}, socketId=${socket.id}, roomId=${roomId}`);
+      
       socket.join(roomId);
       
       // 获取房间数据
@@ -108,8 +117,10 @@ io.on('connection', (socket) => {
         // 从数据库恢复玩家状态到内存
         const restoredPlayers = [];
         for (const [playerId, playerData] of Object.entries(room.playerStates)) {
-          restoredPlayers.push({
+          // 确保恢复的玩家数据包含正确的userId
+          const restoredPlayer = {
             ...playerData,
+            userId: playerId, // 确保userId正确
             socketId: null, // 将在连接时更新
             isActive: false, // 将在连接时更新
             // 确保空位数量字段存在，如果没有则设置默认值
@@ -120,7 +131,9 @@ io.on('connection', (socket) => {
             maxChapterProgress: playerData.maxChapterProgress || 3,
             // 确保备注字段存在
             notes: playerData.notes || ''
-          });
+          };
+          restoredPlayers.push(restoredPlayer);
+          console.log(`[RESTORE] 恢复玩家: userId=${playerId}, username=${restoredPlayer.username}`);
         }
 
         gameRooms.set(roomId, {
@@ -138,6 +151,16 @@ io.on('connection', (socket) => {
       const positions = room.positions;
       const playerStates = room.playerStates;
       
+      // 检查是否是原有玩家重新连接
+      const existingPlayer = roomState.players.find(p => p.userId === userId);
+      if (existingPlayer) {
+        // 更新现有玩家的socket信息
+        existingPlayer.socketId = socket.id;
+        existingPlayer.isActive = true;
+        existingPlayer.temporaryLeave = false;
+        console.log(`[RECONNECT] 玩家重新连接: userId=${userId}, username=${existingPlayer.username}, socketId=${socket.id}`);
+      }
+      
       // 发送房间位置信息给客户端，让玩家选择位置
       const isOriginalPlayer = playerStates[userId] !== undefined;
       socket.emit('room-positions', {
@@ -148,8 +171,8 @@ io.on('connection', (socket) => {
         isOriginalPlayer
       });
       
-      socket.to(roomId).emit('user-joined', socket.id);
-      console.log(`用户 ${socket.id} 加入房间 ${roomId}`);
+      socket.to(roomId).emit('user-joined', { userId, username, socketId: socket.id });
+      console.log(`用户 ${username}(${userId}) 加入房间 ${roomId}, socketId: ${socket.id}`);
       
       // 发送当前房间状态
       socket.emit('game-state-update', roomState);
@@ -233,6 +256,7 @@ io.on('connection', (socket) => {
           isReady: false,
           isActive: true,
           notes: '',
+          customFields: [], // 初始化自定义字段
           hand: [],
           graveyard: [],
           battlefield: [],
@@ -352,9 +376,9 @@ io.on('connection', (socket) => {
       const roomState = gameRooms.get(roomId);
       
       if (roomState) {
-        // 获取完整的卡组信息，包括主战者
-        let championCard = null;
-        let championDescription = null;
+          // 获取完整的卡组信息，包括主战者
+          let championCardId = data.championCardId;
+          let championDescription = data.championDescription;
         
         try {
           const deck = await Deck.findByPk(deckId, {
@@ -366,21 +390,18 @@ io.on('connection', (socket) => {
             ]
           });
           
-          if (deck && deck.championCardId) {
-            // 首先检查主战者是否是英雄卡
-            if (deck.heroCard && deck.heroCard.id === deck.championCardId) {
-              championCard = deck.heroCard;
-            } else {
-              // 如果不是英雄卡，则在卡组的卡牌中查找
-              const deckCards = deck.cards || []; // deck.cards 是 JSON 数组
-              const championCardData = deckCards.find(cardData => cardData.cardId === deck.championCardId);
-              if (championCardData) {
-                // 根据cardId查询实际的Card对象
-                championCard = await Card.findByPk(championCardData.cardId);
-              }
-            }
-            championDescription = deck.championDescription;
+          if (deck) {
+            // 优先使用数据库中的主战者信息
+            championCardId = deck.championCardId || data.championCardId;
+            championDescription = deck.championDescription || data.championDescription;
           }
+          
+          console.log('从服务器获取到的主战者信息:', {
+            championCardId,
+            championDescription,
+            fromData: { championCardId: data.championCardId, championDescription: data.championDescription },
+            fromDeck: deck ? { championCardId: deck.championCardId, championDescription: deck.championDescription } : null
+          });
         } catch (error) {
           console.error('获取卡组主战者信息失败:', error);
         }
@@ -406,6 +427,7 @@ io.on('connection', (socket) => {
             chapterTokens: 0,
             isReady: false,
             notes: '',
+            customFields: [], // 初始化自定义字段
             hand: [],
             graveyard: [],
             battlefield: [],
@@ -421,8 +443,8 @@ io.on('connection', (socket) => {
           player.heroName = heroName;
           player.deckId = deckId;
           player.deckName = deckName;
-          player.championCard = championCard;
-          player.championDescription = championDescription;
+          player.championCardId = championCardId; // 设置主战者ID
+          player.championDescription = championDescription; // 设置主战者描述
           player.socketId = socket.id;
           player.isActive = true; // 标记为活跃状态
           player.temporaryLeave = false; // 取消离线状态
@@ -537,7 +559,7 @@ io.on('connection', (socket) => {
             const firstPlayer = roomState.players[roomState.gameState.firstPlayer];
             const secondPlayer = roomState.players[1 - roomState.gameState.firstPlayer];
 
-            // 先手抽3张牌
+            // 先手抽3张牌，1当前费用，1费用上限，1/3章节进度
             for (let i = 0; i < 3; i++) {
               if (firstPlayer.deck.length > 0) {
                 firstPlayer.hand.push(firstPlayer.deck.shift());
@@ -547,10 +569,13 @@ io.on('connection', (socket) => {
             }
             firstPlayer.health = 25;
             firstPlayer.maxHealth = 25;
-            firstPlayer.maxMana = 1;
+            firstPlayer.mana = 1; // 先手开局当前费用为1
+            firstPlayer.maxMana = 1; // 先手开局费用上限为1
+            firstPlayer.chapterProgress = 1; // 先手开局章节进度为1
             firstPlayer.maxChapterProgress = 3;
+            firstPlayer.showFirstPlayerDrawHint = true; // 显示先攻抽牌提示
 
-            // 后手抽4张牌，获得1点章节进度
+            // 后手抽4张牌，0当前费用，0费用上限，1/3章节进度
             for (let i = 0; i < 4; i++) {
               if (secondPlayer.deck.length > 0) {
                 secondPlayer.hand.push(secondPlayer.deck.shift());
@@ -558,10 +583,11 @@ io.on('connection', (socket) => {
                 secondPlayer.deckSize--;
               }
             }
-            secondPlayer.chapterProgress = 1;
             secondPlayer.health = 25;
             secondPlayer.maxHealth = 25;
-            secondPlayer.maxMana = 1;
+            secondPlayer.mana = 0; // 后手开局当前费用为0
+            secondPlayer.maxMana = 0; // 后手开局费用上限为0
+            secondPlayer.chapterProgress = 1; // 后手开局章节进度为1
             secondPlayer.maxChapterProgress = 3;
             
             // 直接进入游戏阶段，跳过调度
@@ -620,6 +646,10 @@ io.on('connection', (socket) => {
           const currentPlayerIndex = roomState.gameState.currentPlayer;
           const nextPlayerIndex = (currentPlayerIndex + 1) % roomState.players.length;
           
+          // 增加当前玩家的回合数
+          const currentTurnPlayer = roomState.players[currentPlayerIndex];
+          currentTurnPlayer.turnsCompleted = (currentTurnPlayer.turnsCompleted || 0) + 1;
+          
           roomState.gameState.currentPlayer = nextPlayerIndex;
           
           // 如果回到先手玩家，增加回合数
@@ -643,16 +673,55 @@ io.on('connection', (socket) => {
           nextPlayer.mana = nextPlayer.maxMana; // 回合开始时费用充满
           
           // 增加章节进度
-          nextPlayer.chapterProgress = Math.min(nextPlayer.chapterProgress + 1, nextPlayer.maxChapterProgress || 3);
+          nextPlayer.chapterProgress = (nextPlayer.chapterProgress || 0) + 1;
           
           // 如果章节进度达到上限，重置并获得章节令牌
-          if (nextPlayer.chapterProgress === (nextPlayer.maxChapterProgress || 3)) {
+          if (nextPlayer.chapterProgress >= (nextPlayer.maxChapterProgress || 3)) {
             nextPlayer.chapterProgress = 0;
             nextPlayer.chapterTokens = Math.min((nextPlayer.chapterTokens || 0) + 1, 3);
           }
           
           updateNeeded = true;
           broadcastData.message = `${nextPlayer.username} 的回合开始 (第${roomState.gameState.round}回合)`;
+          break;
+
+        case 'extra-turn':
+          // 执行额外回合 - 不切换玩家，但按正常回合推进
+          const extraTurnPlayer = roomState.players[roomState.gameState.currentPlayer];
+          
+          // 增加当前玩家的回合数
+          extraTurnPlayer.turnsCompleted = (extraTurnPlayer.turnsCompleted || 0) + 1;
+          
+          // 抽卡
+          if (extraTurnPlayer.deck && extraTurnPlayer.deck.length > 0) {
+            const drawnCard = extraTurnPlayer.deck.shift();
+            extraTurnPlayer.hand.push(drawnCard);
+            extraTurnPlayer.handSize++;
+            extraTurnPlayer.deckSize--;
+          }
+          
+          // 增加费用上限（最大10）
+          extraTurnPlayer.maxMana = Math.min(extraTurnPlayer.maxMana + 1, 10);
+          extraTurnPlayer.mana = extraTurnPlayer.maxMana; // 回合开始时费用充满
+          
+          // 增加章节进度
+          extraTurnPlayer.chapterProgress = (extraTurnPlayer.chapterProgress || 0) + 1;
+          
+          // 如果章节进度达到上限，重置并获得章节令牌
+          if (extraTurnPlayer.chapterProgress >= (extraTurnPlayer.maxChapterProgress || 3)) {
+            extraTurnPlayer.chapterProgress = 0;
+            extraTurnPlayer.chapterTokens = Math.min((extraTurnPlayer.chapterTokens || 0) + 1, 3);
+          }
+          
+          updateNeeded = true;
+          broadcastData.message = `${extraTurnPlayer.username} 执行了额外回合`;
+          break;
+
+        case 'roll-dice':
+          // 掷骰功能
+          const { sides, result, message } = data;
+          updateNeeded = false; // 掷骰不需要更新游戏状态，只需要记录日志
+          broadcastData.message = message || `${player.username} 掷了一个${sides}面骰子，结果是：${result}`;
           break;
           
         case 'draw-card':
@@ -666,6 +735,12 @@ io.on('connection', (socket) => {
               player.deckSize--;
             }
           }
+          
+          // 如果是先攻玩家第一次抽牌，隐藏提示
+          if (player.showFirstPlayerDrawHint) {
+            player.showFirstPlayerDrawHint = false;
+          }
+          
           updateNeeded = true;
           broadcastData.message = `${player.username} 抽了 ${drawCount} 张牌`;
           break;
@@ -678,6 +753,7 @@ io.on('connection', (socket) => {
             player.handSize--;
             updateNeeded = true;
             broadcastData.message = `${player.username} 弃了一张牌: ${discardedCard.name}`;
+            broadcastData.cardData = discardedCard; // 保存完整卡牌信息
           }
           break;
 
@@ -734,21 +810,22 @@ io.on('connection', (socket) => {
             const costMessage = playedCard.cost === 'X' ? '(X费用)' : `(消耗${playedCard.cost}费用)`;
             const positionMessage = typeof position === 'number' ? `到位置${position + 1}` : '';
             broadcastData.message = `${player.username} 使用了卡牌: ${playedCard.name} ${costMessage} ${positionMessage}`;
+            broadcastData.cardData = playedCard; // 保存完整卡牌信息
           }
           break;
 
         case 'remove-from-battlefield':
-          const { cardId, index } = data;
-          if (cardId) {
+          const { cardId: removeCardId, index } = data;
+          if (removeCardId) {
             // 根据卡牌ID移除
-            const cardIndex = player.battlefield.findIndex(card => card._id === cardId);
+            const cardIndex = player.battlefield.findIndex(card => card._id === removeCardId);
             if (cardIndex >= 0) {
               const removedCard = player.battlefield.splice(cardIndex, 1)[0];
               player.graveyard.push(removedCard);
               
               // 从游戏板移除
               roomState.gameState.gameBoard.playerCards = roomState.gameState.gameBoard.playerCards.filter(
-                card => !(card._id === cardId && card.ownerId === userId)
+                card => !(card._id === removeCardId && card.ownerId === userId)
               );
               
               updateNeeded = true;
@@ -804,27 +881,39 @@ io.on('connection', (socket) => {
               player.health = Math.max(0, Math.min(player.maxHealth, player.health + change));
               break;
             case 'maxHealth':
-              player.maxHealth = Math.max(1, Math.min(100, player.maxHealth + change));
+              player.maxHealth = Math.max(1, Math.min(500, player.maxHealth + change));
               // 确保当前生命值不超过新的上限
               player.health = Math.min(player.health, player.maxHealth);
-              console.log(`[DEBUG] 生命上限调整为: ${player.maxHealth}, 当前生命: ${player.health}`);
               break;
             case 'mana':
               player.mana = Math.max(0, Math.min(player.maxMana, player.mana + change));
               break;
             case 'maxMana':
-              player.maxMana = Math.max(0, Math.min(15, player.maxMana + change));
+              player.maxMana = Math.max(0, Math.min(99, player.maxMana + change));
               // 确保当前费用不超过新的上限
               player.mana = Math.min(player.mana, player.maxMana);
               break;
+            case 'mana':
+              player.mana = Math.max(0, Math.min(99, player.mana + change));
+              break;
             case 'chapter':
-              player.chapterProgress = Math.max(0, Math.min(player.maxChapterProgress || 3, player.chapterProgress + change));
+              const newChapterProgress = Math.max(0, Math.min(player.maxChapterProgress || 3, player.chapterProgress + change));
+              player.chapterProgress = newChapterProgress;
+              
+              // 检查章节进度是否达到上限，如果是则自动处理
+              if (player.chapterProgress >= (player.maxChapterProgress || 3)) {
+                player.chapterProgress = 0;
+                player.chapterTokens = Math.min((player.chapterTokens || 0) + 1, 10);
+                broadcastData.message = `${player.username} 章节进度达到上限，获得1点章节指示物并重置章节进度`;
+              }
               break;
             case 'maxChapter':
-              player.maxChapterProgress = Math.max(1, Math.min(10, (player.maxChapterProgress || 3) + change));
+              player.maxChapterProgress = Math.max(1, Math.min(30, (player.maxChapterProgress || 3) + change));
               // 确保当前章节进度不超过新的上限
               player.chapterProgress = Math.min(player.chapterProgress, player.maxChapterProgress);
-              console.log(`[DEBUG] 章节上限调整为: ${player.maxChapterProgress}, 当前章节: ${player.chapterProgress}`);
+              break;
+            case 'chapterTokens':
+              player.chapterTokens = Math.max(0, Math.min(50, (player.chapterTokens || 0) + change));
               break;
           }
           updateNeeded = true;
@@ -846,10 +935,169 @@ io.on('connection', (socket) => {
             player.deckSize++;
             updateNeeded = true;
             broadcastData.message = `${player.username} 向牌库添加了卡牌: ${data.cardData.name}`;
+            broadcastData.cardData = newCard; // 保存完整卡牌信息
           } else if (data.cardName) {
             player.deckSize++;
             updateNeeded = true;
             broadcastData.message = `${player.username} 向牌库添加了卡牌: ${data.cardName}`;
+          }
+          break;
+
+        case 'add-card-to-deck-from-collection':
+          if (data.card) {
+            const quantity = data.quantity || 1; // 获取数量，默认为1
+            const addedCards = [];
+            
+            // 批量添加卡牌
+            for (let i = 0; i < quantity; i++) {
+              const cardToAdd = {
+                ...data.card,
+                _id: `temp_${Date.now()}_${data.card._id}_${i}`,
+                ownerId: userId
+              };
+              
+              if (player.deck) {
+                if (data.position === 'top') {
+                  player.deck.unshift(cardToAdd); // 添加到顶部
+                } else if (data.position === 'random') {
+                  // 随机插入到牌堆中的任意位置
+                  const randomIndex = Math.floor(Math.random() * (player.deck.length + 1));
+                  player.deck.splice(randomIndex, 0, cardToAdd);
+                } else {
+                  player.deck.push(cardToAdd); // 添加到底部
+                }
+              }
+              player.deckSize++;
+              addedCards.push(cardToAdd);
+            }
+            
+            updateNeeded = true;
+            const positionText = data.position === 'top' ? '顶部' : 
+                                data.position === 'random' ? '随机位置' : '底部';
+            const quantityText = quantity > 1 ? ` ${quantity}张` : '';
+            broadcastData.message = `${player.username} 向牌库${positionText}添加了${quantityText}卡牌: ${data.card.name}`;
+            broadcastData.cardData = addedCards[0]; // 保存第一张卡牌信息用于日志显示
+          }
+          break;
+
+        case 'add-card-to-battlefield':
+          if (data.card) {
+            const quantity = data.quantity || 1; // 获取数量，默认为1
+            
+            // 对于牌桌，只能添加一张到指定位置，如果数量大于1则提示错误
+            if (quantity > 1) {
+              broadcastData.message = `${player.username} 无法在牌桌同一位置添加多张卡牌，只添加了1张: ${data.card.name}`;
+            }
+            
+            // 从卡牌集中添加卡牌到牌桌
+            const cardToAdd = {
+              ...data.card,
+              _id: `temp_${Date.now()}_${data.card._id}`,
+              ownerId: userId
+            };
+            
+            // 确保牌桌数组足够大
+            while (player.battlefield.length <= data.position) {
+              player.battlefield.push(null);
+            }
+            player.battlefield[data.position] = cardToAdd;
+            
+            // 添加到游戏板
+            roomState.gameState.gameBoard.playerCards.push({
+              ...cardToAdd,
+              ownerId: userId
+            });
+            
+            updateNeeded = true;
+            if (quantity <= 1) {
+              broadcastData.message = `${player.username} 在牌桌位置${data.position + 1}添加了卡牌: ${data.card.name}`;
+            }
+            broadcastData.cardData = cardToAdd; // 保存完整卡牌信息
+          }
+          break;
+
+        case 'add-card-to-effect-zone':
+          if (data.card) {
+            const quantity = data.quantity || 1; // 获取数量，默认为1
+            
+            // 对于持续区，只能添加一张到指定位置，如果数量大于1则提示错误
+            if (quantity > 1) {
+              broadcastData.message = `${player.username} 无法在持续区同一位置添加多张卡牌，只添加了1张: ${data.card.name}`;
+            }
+            
+            // 从卡牌集中添加卡牌到持续区
+            const cardToAdd = {
+              ...data.card,
+              _id: `temp_${Date.now()}_${data.card._id}`,
+              ownerId: userId
+            };
+            
+            // 确保持续区数组足够大
+            while (player.effectZone.length <= data.position) {
+              player.effectZone.push(null);
+            }
+            player.effectZone[data.position] = cardToAdd;
+            
+            // 添加到游戏板
+            roomState.gameState.gameBoard.effectCards.push({
+              ...cardToAdd,
+              ownerId: userId
+            });
+            
+            updateNeeded = true;
+            if (quantity <= 1) {
+              broadcastData.message = `${player.username} 在持续区位置${data.position + 1}添加了卡牌: ${data.card.name}`;
+            }
+            broadcastData.cardData = cardToAdd; // 保存完整卡牌信息
+          }
+          break;
+
+        case 'add-card-to-hand':
+          if (data.card) {
+            const quantity = data.quantity || 1; // 获取数量，默认为1
+            const addedCards = [];
+            
+            // 批量添加卡牌到手牌
+            for (let i = 0; i < quantity; i++) {
+              const cardToAdd = {
+                ...data.card,
+                _id: `temp_${Date.now()}_${data.card._id}_${i}`,
+                ownerId: userId
+              };
+              
+              player.hand.push(cardToAdd);
+              player.handSize++;
+              addedCards.push(cardToAdd);
+            }
+            
+            updateNeeded = true;
+            const quantityText = quantity > 1 ? ` ${quantity}张` : '';
+            broadcastData.message = `${player.username} 向手牌添加了${quantityText}卡牌: ${data.card.name}`;
+            broadcastData.cardData = addedCards[0]; // 保存第一张卡牌信息用于日志显示
+          }
+          break;
+
+        case 'add-card-to-graveyard':
+          if (data.card) {
+            const quantity = data.quantity || 1; // 获取数量，默认为1
+            const addedCards = [];
+            
+            // 批量添加卡牌到弃牌堆
+            for (let i = 0; i < quantity; i++) {
+              const cardToAdd = {
+                ...data.card,
+                _id: `temp_${Date.now()}_${data.card._id}_${i}`,
+                ownerId: userId
+              };
+              
+              player.graveyard.push(cardToAdd);
+              addedCards.push(cardToAdd);
+            }
+            
+            updateNeeded = true;
+            const quantityText = quantity > 1 ? ` ${quantity}张` : '';
+            broadcastData.message = `${player.username} 向弃牌堆添加了${quantityText}卡牌: ${data.card.name}`;
+            broadcastData.cardData = addedCards[0]; // 保存第一张卡牌信息用于日志显示
           }
           break;
           
@@ -916,16 +1164,69 @@ io.on('connection', (socket) => {
           }
           break;
 
+        case 'bulk-discard-graveyard-cards':
+          const { cardIds } = data;
+          if (cardIds && Array.isArray(cardIds) && cardIds.length > 0) {
+            const removedCards = [];
+            // 从后往前遍历，避免索引变化问题
+            for (let i = player.graveyard.length - 1; i >= 0; i--) {
+              const card = player.graveyard[i];
+              if (cardIds.includes(card._id)) {
+                const removedCard = player.graveyard.splice(i, 1)[0];
+                removedCards.push(removedCard);
+              }
+            }
+            if (removedCards.length > 0) {
+              updateNeeded = true;
+              const cardNames = removedCards.map(card => card.name).join(', ');
+              broadcastData.message = `${player.username} 从弃牌堆中彻底移除了 ${removedCards.length} 张卡牌: ${cardNames}`;
+            }
+          }
+          break;
+
+        case 'bulk-modify-graveyard-card-cost':
+          const { cardIds: modifyCardIds, costChange } = data;
+          if (modifyCardIds && Array.isArray(modifyCardIds) && modifyCardIds.length > 0 && typeof costChange === 'number') {
+            const modifiedCards = [];
+            player.graveyard.forEach(card => {
+              if (modifyCardIds.includes(card._id)) {
+                const originalCost = card.cost;
+                // 处理X费用和数字费用
+                if (originalCost === 'X') {
+                  // X费用保持不变
+                  card.cost = 'X';
+                } else {
+                  const currentCost = parseInt(originalCost) || 0;
+                  const newCost = Math.max(0, currentCost + costChange);
+                  card.cost = newCost.toString();
+                  if (!card.originalCost) {
+                    card.originalCost = originalCost; // 保存原始费用
+                  }
+                }
+                modifiedCards.push(card);
+              }
+            });
+            if (modifiedCards.length > 0) {
+              updateNeeded = true;
+              const cardNames = modifiedCards.map(card => card.name).join(', ');
+              const changeText = costChange > 0 ? `+${costChange}` : `${costChange}`;
+              broadcastData.message = `${player.username} 将弃牌堆中 ${modifiedCards.length} 张卡牌的费用修改了 ${changeText}: ${cardNames}`;
+            }
+          }
+          break;
+
         case 'return-card-from-field':
           const { cardIndex: returnFieldIndex, zone: returnZone } = data;
           let returnedFieldCard;
-          if (returnZone === 'battlefield' && player.battlefield.length > returnFieldIndex && returnFieldIndex >= 0) {
-            returnedFieldCard = player.battlefield.splice(returnFieldIndex, 1)[0];
+          if (returnZone === 'battlefield' && player.battlefield.length > returnFieldIndex && returnFieldIndex >= 0 && player.battlefield[returnFieldIndex]) {
+            returnedFieldCard = player.battlefield[returnFieldIndex];
+            player.battlefield[returnFieldIndex] = null; // 设置为null而不是删除，保持位置
             roomState.gameState.gameBoard.playerCards = roomState.gameState.gameBoard.playerCards.filter(
               (card, idx) => !(idx === returnFieldIndex && card.ownerId === userId)
             );
-          } else if (returnZone === 'effect' && player.effectZone.length > returnFieldIndex && returnFieldIndex >= 0) {
-            returnedFieldCard = player.effectZone.splice(returnFieldIndex, 1)[0];
+          } else if (returnZone === 'effect' && player.effectZone.length > returnFieldIndex && returnFieldIndex >= 0 && player.effectZone[returnFieldIndex]) {
+            returnedFieldCard = player.effectZone[returnFieldIndex];
+            player.effectZone[returnFieldIndex] = null; // 设置为null而不是删除，保持位置
             roomState.gameState.gameBoard.effectCards = roomState.gameState.gameBoard.effectCards.filter(
               (card, idx) => !(idx === returnFieldIndex && card.ownerId === userId)
             );
@@ -959,13 +1260,15 @@ io.on('connection', (socket) => {
         case 'discard-from-field':
           const { cardIndex: discardFieldIndex, zone: discardZone } = data;
           let discardedFieldCard;
-          if (discardZone === 'battlefield' && player.battlefield.length > discardFieldIndex && discardFieldIndex >= 0) {
-            discardedFieldCard = player.battlefield.splice(discardFieldIndex, 1)[0];
+          if (discardZone === 'battlefield' && player.battlefield.length > discardFieldIndex && discardFieldIndex >= 0 && player.battlefield[discardFieldIndex]) {
+            discardedFieldCard = player.battlefield[discardFieldIndex];
+            player.battlefield[discardFieldIndex] = null; // 设置为null而不是删除，保持位置
             roomState.gameState.gameBoard.playerCards = roomState.gameState.gameBoard.playerCards.filter(
               (card, idx) => !(idx === discardFieldIndex && card.ownerId === userId)
             );
-          } else if (discardZone === 'effect' && player.effectZone.length > discardFieldIndex && discardFieldIndex >= 0) {
-            discardedFieldCard = player.effectZone.splice(discardFieldIndex, 1)[0];
+          } else if (discardZone === 'effect' && player.effectZone.length > discardFieldIndex && discardFieldIndex >= 0 && player.effectZone[discardFieldIndex]) {
+            discardedFieldCard = player.effectZone[discardFieldIndex];
+            player.effectZone[discardFieldIndex] = null; // 设置为null而不是删除，保持位置
             roomState.gameState.gameBoard.effectCards = roomState.gameState.gameBoard.effectCards.filter(
               (card, idx) => !(idx === discardFieldIndex && card.ownerId === userId)
             );
@@ -974,6 +1277,7 @@ io.on('connection', (socket) => {
             player.graveyard.push(discardedFieldCard);
             updateNeeded = true;
             broadcastData.message = `${player.username} 弃掉了场上的卡牌: ${discardedFieldCard.name}`;
+            broadcastData.cardData = discardedFieldCard; // 保存完整卡牌信息
           }
           break;
 
@@ -1128,6 +1432,90 @@ io.on('connection', (socket) => {
             broadcastData = {}; // 清空消息
           }
           break;
+
+        case 'update-custom-fields':
+          const { type: fieldType, fields } = data;
+          if (fieldType === 'my-fields') {
+            // 更新玩家的自定义字段
+            player.customFields = fields || [];
+            updateNeeded = true;
+            console.log(`[DEBUG] ${player.username} 更新了自定义字段: ${fields.length} 个字段`);
+            // 不在游戏日志中显示字段更新，保持静默同步
+            broadcastData = {}; // 清空消息
+          }
+          break;
+
+        case 'modify-hand-card-cost':
+          const { handIndex: modifyHandIndex, newCost } = data;
+          if (player.hand && player.hand.length > modifyHandIndex && modifyHandIndex >= 0) {
+            const targetHandCard = player.hand[modifyHandIndex];
+            const originalCost = targetHandCard.cost;
+            targetHandCard.cost = newCost;
+            targetHandCard.originalCost = originalCost; // 保存原始费用
+            updateNeeded = true;
+            broadcastData.message = `${player.username} 将手牌 ${targetHandCard.name} 的费用从 ${originalCost} 调整为 ${newCost}`;
+          }
+          break;
+
+        case 'update-card-note':
+          const { cardIndex: noteCardIndex, zone: noteZone, note } = data;
+          let targetNoteCard;
+          if (noteZone === 'battlefield' && player.battlefield.length > noteCardIndex && noteCardIndex >= 0) {
+            targetNoteCard = player.battlefield[noteCardIndex];
+          } else if (noteZone === 'effect' && player.effectZone.length > noteCardIndex && noteCardIndex >= 0) {
+            targetNoteCard = player.effectZone[noteCardIndex];
+          } else if (noteZone === 'graveyard' && player.graveyard.length > noteCardIndex && noteCardIndex >= 0) {
+            targetNoteCard = player.graveyard[noteCardIndex];
+          } else if (noteZone === 'hand' && player.hand.length > noteCardIndex && noteCardIndex >= 0) {
+            targetNoteCard = player.hand[noteCardIndex];
+          } else if (noteZone === 'deck' && player.deck.length > noteCardIndex && noteCardIndex >= 0) {
+            targetNoteCard = player.deck[noteCardIndex];
+          }
+
+          if (targetNoteCard) {
+            const trimmedNote = (note || '').substring(0, 200); // 限制备注长度为200字符
+            targetNoteCard.cardNote = trimmedNote;
+            updateNeeded = true;
+            if (trimmedNote) {
+              broadcastData.message = `${player.username} 为 ${targetNoteCard.name} 添加了备注`;
+            } else {
+              broadcastData.message = `${player.username} 清除了 ${targetNoteCard.name} 的备注`;
+            }
+          }
+          break;
+
+        case 'display-all-hand':
+          // 展示全部手牌
+          if (data.cards && Array.isArray(data.cards)) {
+            player.displayedHandCards = [...data.cards]; // 保存展示的手牌
+            player.isDisplayingAllHand = true;
+            player.isDisplayingSelectedHand = false;
+            updateNeeded = true;
+            broadcastData.message = data.message || `${player.username} 展示了全部手牌 (${data.cards.length} 张)`;
+          }
+          break;
+
+        case 'display-selected-hand':
+          // 展示选中的手牌
+          if (data.cards && Array.isArray(data.cards)) {
+            player.displayedHandCards = [...data.cards]; // 保存展示的手牌
+            player.isDisplayingSelectedHand = true;
+            player.isDisplayingAllHand = false;
+            updateNeeded = true;
+            broadcastData.message = data.message || `${player.username} 展示了 ${data.cards.length} 张手牌`;
+          }
+          break;
+
+        case 'hide-all-hand':
+        case 'hide-selected-hand':
+          // 取消展示手牌
+          player.displayedHandCards = [];
+          player.isDisplayingAllHand = false;
+          player.isDisplayingSelectedHand = false;
+          updateNeeded = true;
+          broadcastData.message = data.message || `${player.username} 取消展示手牌`;
+          break;
+
       }
       
       // 发送游戏更新（如果有消息的话）
@@ -1141,7 +1529,8 @@ io.on('connection', (socket) => {
           timestamp: new Date().toISOString(),
           message: broadcastData.message,
           playerName: broadcastData.playerName || player.username,
-          action: action
+          action: action,
+          cardData: broadcastData.cardData || null // 保存卡牌数据到日志
         };
         
         // 添加到内存中的房间状态（用于即时显示）

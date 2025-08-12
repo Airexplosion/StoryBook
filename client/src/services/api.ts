@@ -41,7 +41,33 @@ const apiWithMethods = Object.assign(api, {
 
   // 卡牌相关API
   cards: {
-    getAll: () => api.get('/cards'),
+    getAll: (params?: {
+      page?: number;
+      limit?: number;
+      search?: string;
+      type?: string;
+      category?: string;
+      faction?: string;
+      cost?: string;
+      createdBy?: string;
+      sortBy?: string;
+      sortDirection?: string;
+    }) => {
+      const queryParams = new URLSearchParams();
+      if (params?.page) queryParams.append('page', params.page.toString());
+      if (params?.limit) queryParams.append('limit', params.limit.toString());
+      if (params?.search) queryParams.append('search', params.search);
+      if (params?.type) queryParams.append('type', params.type);
+      if (params?.category) queryParams.append('category', params.category);
+      if (params?.faction) queryParams.append('faction', params.faction);
+      if (params?.cost) queryParams.append('cost', params.cost);
+      if (params?.createdBy) queryParams.append('createdBy', params.createdBy);
+      if (params?.sortBy) queryParams.append('sortBy', params.sortBy);
+      if (params?.sortDirection) queryParams.append('sortDirection', params.sortDirection);
+      
+      const queryString = queryParams.toString();
+      return api.get(`/cards${queryString ? `?${queryString}` : ''}`);
+    },
     create: (cardData: any) => api.post('/cards', cardData),
     update: (id: string, cardData: any) => api.put(`/cards/${id}`, cardData),
     delete: (id: string) => api.delete(`/cards/${id}`),
@@ -54,6 +80,10 @@ const apiWithMethods = Object.assign(api, {
     create: (deckData: any) => api.post('/decks', deckData),
     update: (id: string, deckData: any) => api.put(`/decks/${id}`, deckData),
     delete: (id: string) => api.delete(`/decks/${id}`),
+    favorite: (id: string) => api.post(`/decks/${id}/favorite`),
+    unfavorite: (id: string) => api.delete(`/decks/${id}/favorite`),
+    getFavorites: () => api.get('/decks/favorites'),
+    copy: (id: string) => api.post(`/decks/${id}/copy`),
   },
 
   // 房间相关API
