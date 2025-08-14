@@ -14,6 +14,7 @@ const deckRoutes = require('./routes/decks');
 const configRoutes = require('./routes/config');
 const batchImportRoutes = require('./routes/batchImport');
 const optionsRoutes = require('./routes/options');
+const exportRoutes = require('./routes/export');
 
 const app = express();
 const server = http.createServer(app);
@@ -46,6 +47,7 @@ app.use('/api/decks', deckRoutes);
 app.use('/api/config', configRoutes);
 app.use('/api/batch-import', batchImportRoutes);
 app.use('/api/options', optionsRoutes);
+app.use('/api/export', exportRoutes);
 
 // 测试路由
 app.get('/api/test', (req, res) => {
@@ -652,6 +654,9 @@ io.on('connection', (socket) => {
           
           roomState.gameState.currentPlayer = nextPlayerIndex;
           
+          // 更新currentTurn字段
+          roomState.gameState.currentTurn = (roomState.gameState.currentTurn || 0) + 1;
+          
           // 如果回到先手玩家，增加回合数
           if (nextPlayerIndex === roomState.gameState.firstPlayer) {
             roomState.gameState.round = (roomState.gameState.round || 1) + 1;
@@ -953,7 +958,12 @@ io.on('connection', (socket) => {
               const cardToAdd = {
                 ...data.card,
                 _id: `temp_${Date.now()}_${data.card._id}_${i}`,
-                ownerId: userId
+                ownerId: userId,
+                // 确保createdBy信息完整
+                createdBy: data.card.createdBy || {
+                  _id: data.card.createdBy?._id || 'unknown',
+                  username: data.card.createdBy?.username || '未知创建者'
+                }
               };
               
               if (player.deck) {
@@ -993,7 +1003,12 @@ io.on('connection', (socket) => {
             const cardToAdd = {
               ...data.card,
               _id: `temp_${Date.now()}_${data.card._id}`,
-              ownerId: userId
+              ownerId: userId,
+              // 确保createdBy信息完整
+              createdBy: data.card.createdBy || {
+                _id: data.card.createdBy?._id || 'unknown',
+                username: data.card.createdBy?.username || '未知创建者'
+              }
             };
             
             // 确保牌桌数组足够大
@@ -1029,7 +1044,12 @@ io.on('connection', (socket) => {
             const cardToAdd = {
               ...data.card,
               _id: `temp_${Date.now()}_${data.card._id}`,
-              ownerId: userId
+              ownerId: userId,
+              // 确保createdBy信息完整
+              createdBy: data.card.createdBy || {
+                _id: data.card.createdBy?._id || 'unknown',
+                username: data.card.createdBy?.username || '未知创建者'
+              }
             };
             
             // 确保持续区数组足够大
@@ -1062,7 +1082,12 @@ io.on('connection', (socket) => {
               const cardToAdd = {
                 ...data.card,
                 _id: `temp_${Date.now()}_${data.card._id}_${i}`,
-                ownerId: userId
+                ownerId: userId,
+                // 确保createdBy信息完整
+                createdBy: data.card.createdBy || {
+                  _id: data.card.createdBy?._id || 'unknown',
+                  username: data.card.createdBy?.username || '未知创建者'
+                }
               };
               
               player.hand.push(cardToAdd);
@@ -1087,7 +1112,12 @@ io.on('connection', (socket) => {
               const cardToAdd = {
                 ...data.card,
                 _id: `temp_${Date.now()}_${data.card._id}_${i}`,
-                ownerId: userId
+                ownerId: userId,
+                // 确保createdBy信息完整
+                createdBy: data.card.createdBy || {
+                  _id: data.card.createdBy?._id || 'unknown',
+                  username: data.card.createdBy?.username || '未知创建者'
+                }
               };
               
               player.graveyard.push(cardToAdd);
@@ -1609,11 +1639,63 @@ io.on('connection', (socket) => {
   });
 });
 
+// 自动添加缺失的数据库字段
+const addMissingFields = async () => {
+  try {
+    console.log('🔍 检查数据库字段完整性...');
+    
+    // 检查cards表是否存在tags字段
+    const [results] = await sequelize.query("PRAGMA table_info(cards)");
+    const hasTagsField = results.some(column => column.name === 'tags');
+    
+    if (!hasTagsField) {
+      console.log('📝 检测到缺失的tags字段，正在添加...');
+      
+      // 先添加字段，不设置默认值（避免覆盖已有数据）
+      await sequelize.query(`
+        ALTER TABLE cards 
+        ADD COLUMN tags TEXT
+      `);
+      
+      // 然后只为NULL值设置默认的空数组，保留已有的tags数据
+      await sequelize.query(`
+        UPDATE cards 
+        SET tags = '[]' 
+        WHERE tags IS NULL
+      `);
+      
+      console.log('✅ tags字段添加成功，已有数据保持不变');
+    } else {
+      console.log('✅ tags字段已存在');
+      
+      // 即使字段存在，也确保NULL值被设置为空数组
+      await sequelize.query(`
+        UPDATE cards 
+        SET tags = '[]' 
+        WHERE tags IS NULL
+      `);
+      console.log('✅ 已确保所有NULL的tags字段都设置为空数组');
+    }
+    
+    console.log('✅ 数据库字段检查完成');
+  } catch (error) {
+    // 如果表不存在，这是正常的（首次运行）
+    if (error.message.includes('no such table')) {
+      console.log('📝 检测到首次运行，将创建新表');
+    } else {
+      console.error('⚠️ 数据库字段检查失败:', error.message);
+    }
+  }
+};
+
 // 初始化数据库并启动服务器
 const initializeApp = async () => {
   try {
     // 测试数据库连接
     await testConnection();
+    
+    // 检查并添加缺失的数据库字段
+    await addMissingFields();
     
     // 同步数据库模型（创建表）
     await sequelize.sync({ force: false }); // force: false 表示不会删除现有数据，只创建新表

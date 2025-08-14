@@ -191,13 +191,13 @@ const DeckBuilder: React.FC = () => {
         </div>
         <div className="bg-yellow-600 bg-opacity-20 rounded p-2 text-center">
           <div className="text-sm font-bold text-yellow-400">
-            {deck.cards.filter(dc => dc.card.faction === '中立').reduce((sum, dc) => sum + dc.count, 0)}
+            {deck.cards.filter(dc => dc.card.faction.includes('中立')).reduce((sum, dc) => sum + dc.count, 0)}
           </div>
           <div className="text-xs text-gray-300">中立卡</div>
         </div>
         <div className="bg-orange-600 bg-opacity-20 rounded p-2 text-center">
           <div className="text-sm font-bold text-orange-400">
-            {deck.cards.filter(dc => dc.card.faction !== '中立').reduce((sum, dc) => sum + dc.count, 0)}
+            {deck.cards.filter(dc => !dc.card.faction.includes('中立')).reduce((sum, dc) => sum + dc.count, 0)}
           </div>
           <div className="text-xs text-gray-300">专属卡</div>
         </div>
@@ -531,13 +531,13 @@ const DeckBuilder: React.FC = () => {
                     <div className="flex justify-between">
                       <span className="text-yellow-400">中立卡:</span>
                       <span className="text-white font-bold">
-                        {viewingDeck.cards.filter(dc => dc.card.faction === '中立').reduce((sum, dc) => sum + dc.count, 0)}张
+                        {viewingDeck.cards.filter(dc => dc.card.faction.includes('中立')).reduce((sum, dc) => sum + dc.count, 0)}张
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-orange-400">专属卡:</span>
                       <span className="text-white font-bold">
-                        {viewingDeck.cards.filter(dc => dc.card.faction !== '中立').reduce((sum, dc) => sum + dc.count, 0)}张
+                        {viewingDeck.cards.filter(dc => !dc.card.faction.includes('中立')).reduce((sum, dc) => sum + dc.count, 0)}张
                       </span>
                     </div>
                   </div>

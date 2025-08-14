@@ -582,16 +582,49 @@ const FactionCard: React.FC<{
             </div>
           </div>
 
+          {/* 标签显示 */}
+          {faction.tags && faction.tags.length > 0 && (
+            <div className="text-center mb-2" style={{ marginTop: '140px' }}>
+              <div className="flex flex-wrap justify-center gap-1">
+                {faction.tags.slice(0, 3).map((tag, index) => (
+                  <span
+                    key={index}
+                    className="px-2 py-1 text-xs rounded-full"
+                    style={{
+                      backgroundColor: 'rgba(145, 130, 115, 0.2)',
+                      color: '#918273',
+                      border: '1px solid rgba(145, 130, 115, 0.3)'
+                    }}
+                  >
+                    {tag}
+                  </span>
+                ))}
+                {faction.tags.length > 3 && (
+                  <span
+                    className="px-2 py-1 text-xs rounded-full"
+                    style={{
+                      backgroundColor: 'rgba(145, 130, 115, 0.2)',
+                      color: '#918273',
+                      border: '1px solid rgba(145, 130, 115, 0.3)'
+                    }}
+                  >
+                    +{faction.tags.length - 3}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* 主战者效果描述 */}
-          <div className="text-center flex justify-center" style={{ marginTop: '180px' }}>
+          <div className="text-center flex justify-center" style={{ marginTop: faction.tags && faction.tags.length > 0 ? '20px' : '180px' }}>
             <div 
               className="text-sm leading-relaxed overflow-hidden"
               style={{ 
                 color: '#111111',
                 textShadow: '1px 1px 2px rgba(255,255,255,0.8)',
-                height: '90px',
+                height: faction.tags && faction.tags.length > 0 ? '70px' : '90px',
                 display: '-webkit-box',
-                WebkitLineClamp: 3,
+                WebkitLineClamp: faction.tags && faction.tags.length > 0 ? 2 : 3,
                 WebkitBoxOrient: 'vertical',
                 textOverflow: 'ellipsis',
                 width: '200px'
@@ -675,15 +708,101 @@ const FactionDetailModal: React.FC<{ faction: Faction; onClose: () => void }> = 
               </div>
             </div>
 
+            {/* 标签显示 - 详情弹窗中显示所有标签 */}
+            {faction.tags && faction.tags.length > 0 && (
+              <div className="text-center mb-4" style={{ marginTop: '200px' }}>
+                <div className="mb-2">
+                  <span style={{ 
+                    fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif',
+                    fontSize: '16px',
+                    color: '#918273',
+                    fontWeight: '500'
+                  }}>
+                    标签
+                  </span>
+                </div>
+                <div className="flex flex-wrap justify-center gap-2">
+                  {faction.tags.map((tag, index) => (
+                    <span
+                      key={index}
+                      className="px-3 py-1 text-sm rounded-full"
+                      style={{
+                        backgroundColor: 'rgba(145, 130, 115, 0.2)',
+                        color: '#918273',
+                        border: '1px solid rgba(145, 130, 115, 0.3)'
+                      }}
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 图片显示 */}
+            {faction.image && (
+              <div className="text-center mb-4" style={{ marginTop: faction.tags && faction.tags.length > 0 ? '20px' : '220px' }}>
+                <div className="mb-2">
+                  <span style={{ 
+                    fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif',
+                    fontSize: '16px',
+                    color: '#918273',
+                    fontWeight: '500'
+                  }}>
+                    图片
+                  </span>
+                </div>
+                <div className="flex justify-center">
+                  <div
+                    className="w-20 h-20 rounded border border-gray-300 overflow-hidden"
+                    style={{
+                      backgroundColor: 'rgba(145, 130, 115, 0.1)'
+                    }}
+                  >
+                    <img
+                      src={faction.image}
+                      alt={`${faction.name} 图片`}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        // 图片加载失败时显示占位符
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                        const parent = target.parentElement;
+                        if (parent) {
+                          parent.innerHTML = `
+                            <div class="w-full h-full flex items-center justify-center text-xs text-gray-500">
+                              图片
+                            </div>
+                          `;
+                        }
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* 主战者效果描述 - 完整显示 */}
-            <div className="text-center flex justify-center" style={{ marginTop: '290px' }}> {/* 326px + 34px = 360px (20px * 1.7 = 34px) */}
+            <div className="text-center flex justify-center" style={{ 
+              marginTop: (() => {
+                let baseMargin = 240;
+                if (faction.tags && faction.tags.length > 0) baseMargin -= 40;
+                if (faction.image) baseMargin -= 60;
+                return `${Math.max(baseMargin, 20)}px`;
+              })()
+            }}>
               <div 
                 className="text-lg leading-relaxed overflow-y-auto custom-scrollbar"
                 style={{ 
                   color: '#111111',
                   textShadow: '1px 1px 2px rgba(255,255,255,0.8)',
-                  height: '153px', // 90px * 1.7 = 153px
-                  width: '340px', // 200px * 1.7 = 340px
+                  height: (() => {
+                    let baseHeight = 153;
+                    if (faction.tags && faction.tags.length > 0) baseHeight -= 40;
+                    if (faction.image) baseHeight -= 60;
+                    return `${Math.max(baseHeight, 60)}px`;
+                  })(),
+                  width: '340px',
                   scrollbarWidth: 'thin',
                   scrollbarColor: '#918273 transparent',
                   padding: '5px'

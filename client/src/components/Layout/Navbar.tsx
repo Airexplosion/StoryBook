@@ -81,12 +81,12 @@ const Navbar: React.FC = () => {
                     onMouseEnter={(e) => e.currentTarget.style.color = '#FBFBFB'}
                     onMouseLeave={(e) => e.currentTarget.style.color = '#AEAEAE'}
                   >
-                    批量导入
+                    管理设置
                     <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                     </svg>
                   </button>
-                  <div className="absolute left-0 mt-2 w-48 rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50" style={{ backgroundColor: '#111111' }}>
+                  <div className="absolute left-0 mt-2 w-48 rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-[99999]" style={{ backgroundColor: '#111111' }}>
                     <Link 
                       to="/cards/batch-import" 
                       className="block px-4 py-2 text-sm rounded-t-md transition-colors duration-300"
@@ -97,15 +97,62 @@ const Navbar: React.FC = () => {
                       批量导入卡牌
                     </Link>
                     {user.isAdmin && (
-                      <Link 
-                        to="/heroes/batch-import" 
-                        className="block px-4 py-2 text-sm rounded-b-md transition-colors duration-300"
-                        style={{ color: '#AEAEAE', fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif' }}
-                        onMouseEnter={(e) => e.currentTarget.style.color = '#FBFBFB'}
-                        onMouseLeave={(e) => e.currentTarget.style.color = '#AEAEAE'}
-                      >
-                        批量导入主战者
-                      </Link>
+                      <>
+                        <Link 
+                          to="/heroes/batch-import" 
+                          className="block px-4 py-2 text-sm transition-colors duration-300"
+                          style={{ color: '#AEAEAE', fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif' }}
+                          onMouseEnter={(e) => e.currentTarget.style.color = '#FBFBFB'}
+                          onMouseLeave={(e) => e.currentTarget.style.color = '#AEAEAE'}
+                        >
+                          批量导入主战者
+                        </Link>
+                        <Link 
+                          to="/cards/create" 
+                          className="block px-4 py-2 text-sm transition-colors duration-300"
+                          style={{ color: '#AEAEAE', fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif' }}
+                          onMouseEnter={(e) => e.currentTarget.style.color = '#FBFBFB'}
+                          onMouseLeave={(e) => e.currentTarget.style.color = '#AEAEAE'}
+                        >
+                          创建卡牌
+                        </Link>
+                        <Link 
+                          to="/factions/manage" 
+                          className="block px-4 py-2 text-sm transition-colors duration-300"
+                          style={{ color: '#AEAEAE', fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif' }}
+                          onMouseEnter={(e) => e.currentTarget.style.color = '#FBFBFB'}
+                          onMouseLeave={(e) => e.currentTarget.style.color = '#AEAEAE'}
+                        >
+                          管理主战者
+                        </Link>
+                        <Link 
+                          to="/types/manage" 
+                          className="block px-4 py-2 text-sm transition-colors duration-300"
+                          style={{ color: '#AEAEAE', fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif' }}
+                          onMouseEnter={(e) => e.currentTarget.style.color = '#FBFBFB'}
+                          onMouseLeave={(e) => e.currentTarget.style.color = '#AEAEAE'}
+                        >
+                          管理类型
+                        </Link>
+                        <Link 
+                          to="/categories/manage" 
+                          className="block px-4 py-2 text-sm transition-colors duration-300"
+                          style={{ color: '#AEAEAE', fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif' }}
+                          onMouseEnter={(e) => e.currentTarget.style.color = '#FBFBFB'}
+                          onMouseLeave={(e) => e.currentTarget.style.color = '#AEAEAE'}
+                        >
+                          管理类别
+                        </Link>
+                        <Link 
+                          to="/settings/export" 
+                          className="block px-4 py-2 text-sm rounded-b-md transition-colors duration-300"
+                          style={{ color: '#AEAEAE', fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif' }}
+                          onMouseEnter={(e) => e.currentTarget.style.color = '#FBFBFB'}
+                          onMouseLeave={(e) => e.currentTarget.style.color = '#AEAEAE'}
+                        >
+                          数据导出
+                        </Link>
+                      </>
                     )}
                   </div>
                 </div>

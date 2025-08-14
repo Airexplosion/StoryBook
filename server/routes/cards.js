@@ -154,6 +154,7 @@ router.get('/', auth, async (req, res) => {
       image: card.image,
       faction: card.faction,
       isPublic: card.isPublic,
+      tags: card.tags || [],
       createdBy: {
         _id: card.creator.id,
         username: card.creator.username
@@ -238,6 +239,7 @@ router.post('/', auth, adminAuth, async (req, res) => {
       image: cardWithCreator.image,
       faction: cardWithCreator.faction,
       isPublic: cardWithCreator.isPublic,
+      tags: cardWithCreator.tags || [],
       createdBy: {
         _id: cardWithCreator.creator.id,
         username: cardWithCreator.creator.username
@@ -291,6 +293,7 @@ router.put('/:id', auth, async (req, res) => {
       image: updatedCard.image,
       faction: updatedCard.faction,
       isPublic: updatedCard.isPublic,
+      tags: updatedCard.tags || [],
       createdBy: {
         _id: updatedCard.creator.id,
         username: updatedCard.creator.username

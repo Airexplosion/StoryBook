@@ -168,16 +168,28 @@ const RoomList: React.FC = () => {
 
             <div className="rounded p-3 mb-4" style={{ backgroundColor: '#2A2A2A', color: '#AEAEAE' }}>
               <div className="flex justify-between items-center text-sm">
-                <span>参与玩家</span>
+                <span>对战人数</span>
                 <span>{room.realTimeStats?.playerCount || room.players.length}/{room.maxPlayers}</span>
               </div>
-              <div className="flex justify-between items-center text-sm">
-                <span>回合进度</span>
-                <span>{room.gameState.round}</span>
-              </div>
-              <div className="flex justify-between items-center text-sm">
-                <span>当前观众</span>
-                <span>{room.realTimeStats?.spectatorCount || room.spectators.length}</span>
+              <div className="text-sm">
+                <div className="flex justify-between items-center mb-1">
+                  <span>已过回合数</span>
+                  <span>第{room.gameState.round}回合</span>
+                </div>
+                {room.players && room.players.length > 0 && (
+                  <div className="text-xs space-y-1 mt-2">
+                    {room.players.map((player, index) => (
+                      <div key={player.user._id} className="flex justify-between items-center">
+                        <span className="truncate max-w-[120px]" title={player.user.username}>
+                          {player.user.username}
+                        </span>
+                        <span>
+                          {room.realTimeStats?.playerTurns?.[player.user._id] || 0}回合
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -224,7 +236,7 @@ const RoomList: React.FC = () => {
 
       {/* 创建房间模态框 */}
       {showCreateModal && (
-        <div className="fixed inset-0 flex items-center justify-center z-50 backdrop-blur-sm" style={{ backgroundColor: 'rgba(17, 17, 17, 0.8)' }}>
+        <div className="fixed inset-0 flex items-center justify-center z-40 backdrop-blur-sm" style={{ backgroundColor: 'rgba(17, 17, 17, 0.8)' }}>
           <div className="rounded-lg p-6 w-96 max-w-md mx-4" style={{ backgroundColor: '#414141' }}>
             <h3 className="text-lg font-medium mb-4" style={{ color: '#FBFBFB' }}>
               请输入房间名称:

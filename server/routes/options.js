@@ -55,6 +55,51 @@ router.get('/card-options', auth, async (req, res) => {
       if (!configData.categories) configData.categories = defaultConfig.categories;
     }
 
+    // 自动扩展faction字段：检查现有数据是否包含新字段，如果没有则自动添加
+    if (configData.factions && Array.isArray(configData.factions)) {
+      let needsUpdate = false;
+      configData.factions = configData.factions.map(faction => {
+        const updatedFaction = { ...faction };
+        
+        // 如果没有tags字段，添加空数组
+        if (!updatedFaction.hasOwnProperty('tags')) {
+          updatedFaction.tags = [];
+          needsUpdate = true;
+        }
+        
+        // 如果没有image字段，添加空字符串
+        if (!updatedFaction.hasOwnProperty('image')) {
+          updatedFaction.image = '';
+          needsUpdate = true;
+        }
+        
+        return updatedFaction;
+      });
+      
+      // 如果有字段更新，保存到数据库
+      if (needsUpdate) {
+        try {
+          let factionConfig = await Config.findOne({
+            where: { configKey: 'factions' }
+          });
+          
+          if (factionConfig) {
+            factionConfig.configValue = configData.factions;
+            await factionConfig.save();
+            console.log('自动扩展faction字段完成');
+          } else {
+            await Config.create({
+              configKey: 'factions',
+              configValue: configData.factions
+            });
+            console.log('创建faction配置并扩展字段完成');
+          }
+        } catch (updateError) {
+          console.error('自动扩展faction字段失败:', updateError);
+        }
+      }
+    }
+
     // 提取选项值
     const typeOptions = configData.types.map(t => t.id);
     const factionOptions = configData.factions.map(f => f.id);

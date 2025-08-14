@@ -32,6 +32,7 @@ export interface Card {
   createdAt: string;
   ownerId?: string; // 用于游戏中标识卡牌拥有者
   originalCost?: string; // 用于保存原始费用，当费用被修改时
+  tags?: string[]; // 卡牌标签，支持任意多个Tag
 }
 
 export interface DeckCard {
@@ -87,6 +88,7 @@ export interface Room {
   realTimeStats?: {
     playerCount: number;
     spectatorCount: number;
+    playerTurns?: { [userId: string]: number };
   };
 }
 
@@ -175,6 +177,8 @@ export interface Faction {
   id: string;
   name: string;
   description?: string;
+  tags?: string[];
+  image?: string;
 }
 
 export interface GameConfig {

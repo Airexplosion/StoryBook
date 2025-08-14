@@ -57,6 +57,11 @@ const Card = sequelize.define('Card', {
       key: 'id',
     },
   },
+  tags: {
+    type: DataTypes.JSON,
+    defaultValue: [],
+    allowNull: true,
+  },
 }, {
   timestamps: true,
   tableName: 'cards',

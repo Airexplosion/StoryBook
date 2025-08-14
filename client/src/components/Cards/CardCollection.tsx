@@ -7,7 +7,6 @@ import SearchableSelect from '../common/SearchableSelect';
 import api from '../../services/api';
 
 const CardCollection: React.FC = () => {
-  const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingCard, setEditingCard] = useState<Card | null>(null);
   const [filter, setFilter] = useState({
     type: 'all',
@@ -216,17 +215,6 @@ const CardCollection: React.FC = () => {
     loadAllCardsForStats();
   }, []);
 
-  const handleCreateCard = async (cardData: Partial<Card>) => {
-    try {
-      await api.cards.create(cardData);
-      setShowCreateModal(false);
-      // 重新加载当前页
-      await loadCards(currentPage);
-    } catch (error) {
-      console.error('创建卡牌失败:', error);
-      alert('创建卡牌失败，请重试');
-    }
-  };
 
   const handleUpdateCard = async (cardData: Partial<Card>) => {
     if (editingCard) {
@@ -387,16 +375,6 @@ const CardCollection: React.FC = () => {
             </>
           )}
           
-          {/* 创建卡牌按钮 - 仅管理员可见 */}
-          {user?.isAdmin && (
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors flex items-center space-x-2"
-            >
-              <span>✨</span>
-              <span>创建卡牌</span>
-            </button>
-          )}
         </div>
       </div>
 
@@ -407,7 +385,7 @@ const CardCollection: React.FC = () => {
       )}
 
       {/* 筛选器 */}
-      <div className="bg-white bg-opacity-10 backdrop-blur-md rounded-xl p-6 mb-8 relative z-20">
+      <div className="bg-white bg-opacity-10 backdrop-blur-md rounded-xl p-6 mb-8 relative z-10">
         <h3 className="text-white font-semibold mb-4 flex items-center">
           <span className="mr-2">🔍</span>
           卡牌筛选
@@ -844,13 +822,6 @@ const CardCollection: React.FC = () => {
         </div>
       )}
 
-      {/* 创建卡牌模态框 */}
-      {showCreateModal && (
-        <CardForm
-          onSubmit={handleCreateCard}
-          onCancel={() => setShowCreateModal(false)}
-        />
-      )}
 
       {/* 编辑卡牌模态框 */}
       {editingCard && (

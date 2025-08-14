@@ -86,18 +86,27 @@ router.put('/factions', auth, adminAuth, async (req, res) => {
   try {
     const { factions } = req.body;
     
+    // 确保每个faction都有必要的字段
+    const processedFactions = factions.map(faction => ({
+      id: faction.id,
+      name: faction.name,
+      description: faction.description || '',
+      tags: faction.tags || [],
+      image: faction.image || ''
+    }));
+    
     // 保存到数据库
     const [config, created] = await Config.findOrCreate({
       where: { configKey: 'factions' },
-      defaults: { configValue: factions }
+      defaults: { configValue: processedFactions }
     });
     
     if (!created) {
-      config.configValue = factions;
+      config.configValue = processedFactions;
       await config.save();
     }
     
-    res.json({ message: '阵营配置更新成功', factions });
+    res.json({ message: '阵营配置更新成功', factions: processedFactions });
   } catch (error) {
     console.error('更新阵营配置错误:', error);
     res.status(500).json({ message: '服务器错误', error: error.message });

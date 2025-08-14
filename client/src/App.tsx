@@ -16,6 +16,11 @@ import GameRoom from './components/Game/GameRoom';
 import TestPage from './components/Test/TestPage';
 import BatchImportHeroes from './components/Cards/BatchImportHeroes';
 import FactionCollection from './components/Factions/FactionCollection';
+import FactionManagement from './components/Settings/FactionManagement';
+import TypeManagement from './components/Settings/TypeManagement';
+import CategoryManagement from './components/Settings/CategoryManagement';
+import CreateCard from './components/Cards/CreateCard';
+import DataExport from './components/Settings/DataExport';
 import { ColorProvider, useColor } from './contexts/ColorContext';
 import ColorSettings from './components/Settings/ColorSettings';
 import './index.css';
@@ -98,6 +103,26 @@ const AppContent: React.FC = () => {
           <Route 
             path="/factions" 
             element={user ? <FactionCollection /> : <Navigate to="/login" />} 
+          />
+          <Route 
+            path="/factions/manage" 
+            element={user ? <FactionManagement /> : <Navigate to="/login" />} 
+          />
+          <Route 
+            path="/types/manage" 
+            element={user ? <TypeManagement /> : <Navigate to="/login" />} 
+          />
+          <Route 
+            path="/categories/manage" 
+            element={user ? <CategoryManagement /> : <Navigate to="/login" />} 
+          />
+          <Route 
+            path="/cards/create" 
+            element={user ? <CreateCard /> : <Navigate to="/login" />} 
+          />
+          <Route 
+            path="/settings/export" 
+            element={user ? <DataExport /> : <Navigate to="/login" />} 
           />
           <Route 
             path="/decks" 

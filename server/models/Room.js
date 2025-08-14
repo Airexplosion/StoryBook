@@ -45,6 +45,7 @@ const Room = sequelize.define('Room', {
     type: DataTypes.TEXT, // JSON字符串存储游戏状态
     defaultValue: JSON.stringify({
       currentPlayer: 0,
+      currentTurn: 0,
       round: 1,
       phase: 'waiting',
       firstPlayer: -1,
@@ -57,6 +58,7 @@ const Room = sequelize.define('Room', {
       const rawValue = this.getDataValue('gameState');
       return rawValue ? JSON.parse(rawValue) : {
         currentPlayer: 0,
+        currentTurn: 0,
         round: 1,
         phase: 'waiting',
         firstPlayer: -1,

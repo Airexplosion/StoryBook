@@ -20,18 +20,49 @@ router.get('/', async (req, res) => {
     // 获取server中的gameRooms实例（需要从app中传递）
     const gameRooms = req.app.get('gameRooms');
 
-    // 转换数据格式，使用实时数据
+    // 转换数据格式，使用准确的实时数据
     const formattedRooms = rooms.map(room => {
-      // 从positions字段获取实际玩家数量
-      const positions = room.positions || {};
-      const activePositions = Object.values(positions).filter(pos => pos !== null);
-      const playerCount = activePositions.length;
-
-      // 从内存中的gameRooms获取观众数量（如果有的话）
-      let spectatorCount = 0;
+      let playerCount = 0;
+      let formattedPlayers = [];
+      
+      // 优先从内存中的gameRooms获取实际玩家数量（最准确的数据源）
       if (gameRooms && gameRooms.has(room.id.toString())) {
         const roomState = gameRooms.get(room.id.toString());
-        spectatorCount = roomState.spectators ? roomState.spectators.length : 0;
+        if (roomState.players) {
+          // 只计算活跃的玩家（有socketId或者不是临时离开的玩家）
+          const activePlayers = roomState.players.filter(p => 
+            p.isActive || p.socketId || !p.temporaryLeave
+          );
+          playerCount = activePlayers.length;
+          
+          // 构建玩家列表
+          formattedPlayers = activePlayers.map(player => ({
+            user: {
+              _id: player.userId,
+              username: player.username
+            },
+            deck: null,
+            isReady: player.isReady || false
+          }));
+        }
+      } else {
+        // 如果内存中没有数据，从数据库的playerStates获取
+        const playerStates = room.playerStates || {};
+        const playerIds = Object.keys(playerStates);
+        playerCount = playerIds.length;
+        
+        // 构建玩家列表
+        formattedPlayers = playerIds.map(userId => {
+          const playerState = playerStates[userId];
+          return {
+            user: {
+              _id: userId,
+              username: playerState.username || 'Unknown'
+            },
+            deck: null,
+            isReady: playerState.isReady || false
+          };
+        });
       }
 
       return {
@@ -41,23 +72,35 @@ router.get('/', async (req, res) => {
           _id: room.creator.id,
           username: room.creator.username
         },
-        players: activePositions.map(pos => ({
-          user: {
-            _id: pos.userId,
-            username: pos.username
-          },
-          deck: null, // 不在列表中显示具体卡组信息
-          isReady: false
-        })),
-        spectators: [], // 观众信息在列表中不显示具体用户
+        players: formattedPlayers,
+        spectators: [], // 观众信息在列表中不显示具体用户，只显示数量
         gameState: room.gameState,
         maxPlayers: room.maxPlayers,
         isActive: room.isActive,
         createdAt: room.createdAt,
-        // 添加实时统计信息
+        // 添加准确的实时统计信息
         realTimeStats: {
           playerCount: playerCount,
-          spectatorCount: spectatorCount
+          playerTurns: (() => {
+            const playerTurns = {};
+            // 从内存中的游戏状态获取每个玩家的回合数
+            if (gameRooms && gameRooms.has(room.id.toString())) {
+              const roomState = gameRooms.get(room.id.toString());
+              if (roomState.players) {
+                roomState.players.forEach(player => {
+                  playerTurns[player.userId] = player.turnsCompleted || 0;
+                });
+              }
+            }
+            // 如果内存中没有数据，从数据库的playerStates获取
+            if (Object.keys(playerTurns).length === 0) {
+              const playerStates = room.playerStates || {};
+              Object.keys(playerStates).forEach(userId => {
+                playerTurns[userId] = playerStates[userId].turnsCompleted || 0;
+              });
+            }
+            return playerTurns;
+          })()
         }
       };
     });
@@ -89,7 +132,14 @@ router.post('/', auth, async (req, res) => {
         userId: req.userId,
         username: req.user.username,
         isReady: false
-      }]
+      }],
+      gameState: {
+        currentPlayer: 0,
+        currentTurn: 0,
+        round: 1,
+        phase: 'waiting',
+        firstPlayer: -1
+      }
     });
 
     const roomWithCreator = await Room.findByPk(room.id, {
@@ -190,6 +240,23 @@ router.post('/:id/join', auth, async (req, res) => {
 
     await room.update({ players, spectators });
 
+    // 同步更新内存中的gameRooms数据
+    const gameRooms = req.app.get('gameRooms');
+    if (gameRooms && gameRooms.has(room.id.toString())) {
+      const roomState = gameRooms.get(room.id.toString());
+      if (type === 'spectator') {
+        // 更新内存中的观众列表
+        const isAlreadyInMemory = roomState.spectators.some(s => s.userId === req.userId);
+        if (!isAlreadyInMemory) {
+          roomState.spectators.push({
+            userId: req.userId,
+            username: req.user.username,
+            socketId: null // 将在socket连接时更新
+          });
+        }
+      }
+    }
+
     const roomWithCreator = await Room.findByPk(room.id, {
       include: [{
         model: User,
@@ -242,6 +309,9 @@ router.post('/:id/leave', auth, async (req, res) => {
     let players = room.players || [];
     let spectators = room.spectators || [];
 
+    // 记录用户是否是观众
+    const wasSpectator = spectators.some(s => s.userId === req.userId);
+
     // 从玩家列表中移除
     players = players.filter(p => p.userId !== req.userId);
 
@@ -249,6 +319,16 @@ router.post('/:id/leave', auth, async (req, res) => {
     spectators = spectators.filter(s => s.userId !== req.userId);
 
     await room.update({ players, spectators });
+
+    // 同步更新内存中的gameRooms数据
+    const gameRooms = req.app.get('gameRooms');
+    if (gameRooms && gameRooms.has(room.id.toString())) {
+      const roomState = gameRooms.get(room.id.toString());
+      if (wasSpectator) {
+        // 从内存中的观众列表移除
+        roomState.spectators = roomState.spectators.filter(s => s.userId !== req.userId);
+      }
+    }
 
     const roomWithCreator = await Room.findByPk(room.id, {
       include: [{

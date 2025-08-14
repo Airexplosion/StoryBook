@@ -24,6 +24,7 @@ const BatchImportHeroes: React.FC = () => {
   const [result, setResult] = useState<ImportResult | null>(null);
   const [error, setError] = useState<string>('');
   const [existingFactions, setExistingFactions] = useState<string[]>([]);
+  const [overwriteMode, setOverwriteMode] = useState<boolean>(false);
 
   // 获取现有的faction配置
   useEffect(() => {
@@ -99,6 +100,7 @@ const BatchImportHeroes: React.FC = () => {
     try {
       const formData = new FormData();
       formData.append('csvFile', file);
+      formData.append('overwriteMode', overwriteMode.toString());
 
       const response = await api.post('/batch-import/heroes', formData, {
         headers: {
@@ -144,8 +146,20 @@ const BatchImportHeroes: React.FC = () => {
           <ul className="list-disc list-inside text-sm text-gray-600 space-y-1">
             <li>请下载CSV模板并按照格式填写数据</li>
             <li>必填字段：name（主战者名称）</li>
-            <li>批量导入主战者配置，用于创建卡牌和卡组时选择主角</li>
-            <li>可选字段：description（描述）</li>
+            <li>可选字段：
+              <ul className="list-disc list-inside ml-4 mt-1">
+                <li>description（描述）：主战者的详细描述</li>
+                <li>tags（标签）：用逗号分隔的标签，如"正义,光明,治疗"</li>
+                <li>image（图片）：单个图片URL，如"https://example.com/image.jpg"</li>
+              </ul>
+            </li>
+            <li>导入模式：
+              <ul className="list-disc list-inside ml-4 mt-1">
+                <li>添加模式（默认）：如果主战者名称已存在，将跳过并报错</li>
+                <li>覆盖模式：如果主战者名称已存在，将更新其配置信息</li>
+              </ul>
+            </li>
+            <li>通过name字段进行匹配，确保导入后能正确对应</li>
             <li>现有的faction配置：{existingFactions.length > 0 ? existingFactions.join(', ') : '加载中...'}</li>
             <li>导入的配置将添加到系统中，供创建卡牌和卡组时使用</li>
           </ul>
@@ -175,6 +189,26 @@ const BatchImportHeroes: React.FC = () => {
               file:bg-blue-50 file:text-blue-700
               hover:file:bg-blue-100"
           />
+        </div>
+
+        <div className="mb-4">
+          <label className="flex items-center">
+            <input
+              type="checkbox"
+              checked={overwriteMode}
+              onChange={(e) => setOverwriteMode(e.target.checked)}
+              className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+            />
+            <span className="text-sm font-medium text-gray-700">
+              覆盖模式
+            </span>
+          </label>
+          <p className="text-xs text-gray-500 mt-1">
+            {overwriteMode 
+              ? '勾选后，如果主战者名称已存在，将更新其配置信息' 
+              : '未勾选时，如果主战者名称已存在，将跳过该条记录并报错'
+            }
+          </p>
         </div>
 
         {error && (
