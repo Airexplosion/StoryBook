@@ -10,7 +10,7 @@ const Home: React.FC = () => {
     <div className="min-h-screen" style={{ backgroundColor: '#111111' }}>
       <div className="text-center" style={{ paddingTop: '40px', paddingBottom: '80px' }}>
         <div className="mb-24 flex justify-center">
-          <img src="/logo.svg" alt="异域故事书·对战" className="w-96 h-auto" />
+          <img src="/SVG/logo.svg" alt="异域故事书·对战" className="w-96 h-auto" />
         </div>
       
         

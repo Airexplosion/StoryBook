@@ -346,8 +346,8 @@ const CardCollection: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center min-h-screen">
-        <div className="text-white text-xl">🃏 加载卡牌中...</div>
+      <div className="flex items-center justify-center min-h-screen">
+        <LoadingText />
       </div>
     );
   }
@@ -1158,6 +1158,34 @@ const CardCollection: React.FC = () => {
           </div>
         </div>
       )}
+    </div>
+  );
+};
+
+// 加载文字组件
+const LoadingText: React.FC = () => {
+  const [dots, setDots] = useState('');
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setDots(prev => {
+        if (prev === '...') return '';
+        return prev + '.';
+      });
+    }, 500);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div 
+      className="text-white text-2xl"
+      style={{ 
+        fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif',
+        color: '#C2B79C'
+      }}
+    >
+      加载中{dots}
     </div>
   );
 };

@@ -48,7 +48,7 @@ const Login: React.FC = () => {
             <div className="mb-6 flex justify-center">
               <img src="/logo.svg" alt="logo" className="w-80 h-auto" />
             </div>
-            <h2 className="text-4xl font-regular" style={{ color: '#FBFBFB', fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif', marginTop: '50px', marginBottom: '0px' }}>叙事人登录</h2>
+            <h2 className="text-4xl font-regular" style={{ color: '#FBFBFB', fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif', marginTop: '200px', marginBottom: '0px' }}>叙事人登录</h2>
           </div>
 
           {error && (
