@@ -16,16 +16,40 @@ const animationStyles = `
     }
   }
   
-      .card-flip-container {
-      perspective: 1000px;
-      border-radius: 15px;
-      overflow: hidden;
-      transition: transform 0.3s ease;
+  .card-flip-container {
+    perspective: 1000px;
+    border-radius: 15px;
+    overflow: visible !important;
+    transition: transform 0.3s ease;
+  }
+  
+  .card-flip-container:hover {
+    box-shadow: 0 0 20px rgba(194, 183, 156, 0.6);
+  }
+
+  /* 移动端缩放 */
+  @media (max-width: 768px) {
+    .faction-mobile-container {
+      transform: scale(0.7) !important;
+      transform-origin: center !important;
+      transition: none !important;
     }
-    
-    .card-flip-container:hover {
+    .faction-mobile-container:hover {
+      transform: scale(0.7) !important;
       box-shadow: 0 0 20px rgba(194, 183, 156, 0.6);
     }
+    
+    .faction-detail-modal {
+      transform: scale(0.7) !important;
+      transform-origin: center !important;
+    }
+    
+    .faction-mobile-grid {
+      grid-auto-rows: calc(403px * 0.7 + 10px) !important;
+      gap: 16px 10px !important;
+      margin-top: -40px !important; /* -10px (原有) + (-30px) = -40px */
+    }
+  }
   
   .card-flip-inner {
     position: relative;
@@ -72,6 +96,20 @@ const animationStyles = `
   .animate-card-flip {
     animation: cardFlip 0.8s ease-in-out forwards;
     animation-delay: var(--flip-delay, 0s);
+  }
+
+  .faction-mobile-grid, .faction-desktop-grid {
+    overflow: visible !important;
+  }
+
+  @media (min-width: 769px) {
+    .faction-desktop-grid {
+      margin-top: 10px !important;
+    }
+  }
+
+  .max-w-7xl {
+    overflow: visible !important;
   }
 `;
 
@@ -127,6 +165,9 @@ const FactionCollection: React.FC = () => {
   // 分页状态
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 12;
+  
+  // 页面跳转状态
+  const [jumpToPage, setJumpToPage] = useState('');
   
   // 动画状态 - 暂时注释掉
   /*
@@ -244,16 +285,16 @@ const FactionCollection: React.FC = () => {
     <div className="max-w-7xl mx-auto">
       {/* 页面标题和搜索栏 */}
       <div className="mb-10">
-        <div className="flex items-end justify-between mb-4">
-          <div>
-            <h1 className="font-bold text-white" style={{ fontFamily: 'HYAoDeSaiJ, sans-serif', letterSpacing: '0.1em', fontSize: '60px', lineHeight: '1.1' }}>
+        <div className="mb-4">
+          <div className="text-center">
+            <h1 className="text-white" style={{ fontFamily: 'HYAoDeSaiJ, sans-serif', letterSpacing: '0.1em', fontSize: '60px', lineHeight: '1.1', fontWeight: 'normal' }}>
               主角集
             </h1>
             <p className="italic" style={{ fontSize: '16px', marginTop: '12px', color: '#AEAEAE' }}>
               浏览所有可用的主战者阵营，了解它们的特色和效果
             </p>
           </div>
-          <div className="flex flex-col items-end">
+          <div className="flex flex-col items-end" style={{ display: 'none' }}>
             <div className="relative max-w-lg">
               <input
                 type="text"
@@ -319,30 +360,61 @@ const FactionCollection: React.FC = () => {
         <div className="flex-1 h-px" style={{ backgroundColor: '#C2B79C' }}></div>
       </div>
 
-      {/* 主战者网格 */}
-      {filteredFactions.length === 0 ? (
-        <div className="text-center py-16">
-          <div className="text-gray-400 text-2xl mb-6 italic">
-            {searchTerm ? '未找到匹配的主战者' : '暂无主战者数据'}
-          </div>
-          {searchTerm && (
-            <button
-              onClick={() => setSearchTerm('')}
-              className="hover:bg-gray-600 text-white px-8 py-3 rounded-lg transition-colors text-lg"
-              style={{ backgroundColor: '#918273' }}
-            >
-              查看所有主战者
-            </button>
-          )}
+      {/* 筛选器 */}
+      <div className="relative z-10">
+        {/* 搜索框 */}
+        <div className="mb-4">
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full px-3 py-2 bg-white bg-opacity-10 border border-gray-500 placeholder-gray-400 focus:outline-none"
+            style={{ color: '#FBFBFB' }}
+            placeholder="输入主角名称或描述..."
+            onFocus={(e) => {
+              e.target.style.borderColor = '#918273';
+              e.target.style.boxShadow = '0 0 0 2px #918273';
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = '#6B7280';
+              e.target.style.boxShadow = 'none';
+            }}
+          />
         </div>
-      ) : (
+
+        {/* 统计信息和重置按钮 */}
+        <div className="flex justify-between items-center mb-4">
+          {/* 统计信息 */}
+          <div className="text-gray-400 text-sm">
+            共找到 <span className="font-semibold" style={{ color: '#4F6A8D' }}>{filteredFactions.length}</span> 个主角
+            {totalPages > 1 && (
+              <span className="ml-2">
+                (第 {currentPage} 页，共 {totalPages} 页)
+              </span>
+            )}
+          </div>
+          
+          <button
+            onClick={() => {
+              setSearchTerm('');
+              setCurrentPage(1);
+            }}
+            className="text-sm text-gray-400 hover:text-white transition-colors px-3 py-1 rounded border border-gray-600 hover:border-gray-500"
+          >
+            重置筛选
+          </button>
+        </div>
+      </div>
+
+      {/* 主战者网格 */}
+      {filteredFactions.length > 0 && (
         <>
-          <div className="grid grid-cols-4 justify-items-center" style={{ gap: '10px' }}>
+          <div className="grid grid-cols-2 md:grid-cols-4 justify-items-center gap-x-4 gap-y-2.5 md:gap-[10px] faction-mobile-grid faction-desktop-grid" style={{ marginTop: '-10px' }}>
             {currentFactions.map((faction, index) => {
               return (
                 <div
                   key={`${faction.id}-${animationKey}`}
-                  className="card-flip-container"
+                  className="card-flip-container faction-mobile-container"
                   style={{
                     width: '288px',
                     height: '403px'
@@ -381,15 +453,17 @@ const FactionCollection: React.FC = () => {
           
           {/* 分页控件 */}
           {totalPages > 1 && (
-            <div className="mt-12 flex justify-center items-center space-x-2">
-              {/* 上一页 */}
-              <button
-                onClick={() => {
-                  setCurrentPage(prev => Math.max(1, prev - 1));
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }}
-                disabled={currentPage === 1}
-                className="px-4 py-2 transition-colors border-b-2"
+            <div className="mt-12 flex flex-col md:flex-row justify-center items-center space-y-4 md:space-y-0 md:space-x-2">
+              {/* 页码按钮容器 */}
+              <div className="flex justify-center items-center space-x-1 md:space-x-2 flex-wrap">
+                {/* 上一页 */}
+                <button
+                  onClick={() => {
+                    setCurrentPage(prev => Math.max(1, prev - 1));
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  disabled={currentPage === 1}
+                  className="px-2 md:px-4 py-2 text-sm md:text-base transition-colors border-b-2"
                 style={{
                   backgroundColor: 'transparent',
                   color: currentPage === 1 ? '#6B7280' : '#C2B79C',
@@ -424,7 +498,52 @@ const FactionCollection: React.FC = () => {
                   startPage = Math.max(1, endPage - showPages + 1);
                 }
                 
+                // 如果起始页不是1，显示第1页和省略号
+                if (startPage > 1) {
+                  pages.push(
+                    <button
+                      key={1}
+                      onClick={() => {
+                        setCurrentPage(1);
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                      className="px-2 md:px-4 py-2 text-sm md:text-base transition-colors border-b-2"
+                      style={{
+                        backgroundColor: 'transparent',
+                        color: currentPage === 1 ? '#FBFBFB' : '#C2B79C',
+                        borderBottomColor: currentPage === 1 ? '#FBFBFB' : 'rgba(194, 183, 156, 0.3)'
+                      }}
+                      onMouseEnter={(e) => {
+                        if (currentPage !== 1) {
+                          e.currentTarget.style.backgroundColor = 'rgba(194, 183, 156, 0.1)';
+                          e.currentTarget.style.borderBottomColor = '#C2B79C';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (currentPage !== 1) {
+                          e.currentTarget.style.backgroundColor = 'transparent';
+                          e.currentTarget.style.borderBottomColor = 'rgba(194, 183, 156, 0.3)';
+                        }
+                      }}
+                    >
+                      1
+                    </button>
+                  );
+                  
+                  if (startPage > 2) {
+                    pages.push(
+                      <span key="start-ellipsis" className="px-1 md:px-2 py-2 text-sm md:text-base text-gray-400">
+                        ...
+                      </span>
+                    );
+                  }
+                }
+                
+                // 显示中间页码
                 for (let i = startPage; i <= endPage; i++) {
+                  // 如果首页已经单独显示了，就跳过；如果尾页会单独显示，也跳过
+                  if ((startPage > 1 && i === 1) || (endPage < totalPages && i === totalPages)) continue;
+                  
                   pages.push(
                     <button
                       key={i}
@@ -432,7 +551,7 @@ const FactionCollection: React.FC = () => {
                         setCurrentPage(i);
                         window.scrollTo({ top: 0, behavior: 'smooth' });
                       }}
-                      className="px-4 py-2 transition-colors border-b-2"
+                      className="px-2 md:px-4 py-2 text-sm md:text-base transition-colors border-b-2"
                       style={{
                         backgroundColor: 'transparent',
                         color: currentPage === i ? '#FBFBFB' : '#C2B79C',
@@ -456,38 +575,144 @@ const FactionCollection: React.FC = () => {
                   );
                 }
                 
+                // 如果结束页不是最后一页，显示省略号和最后一页
+                if (endPage < totalPages) {
+                  if (endPage < totalPages - 1) {
+                    pages.push(
+                      <span key="end-ellipsis" className="px-1 md:px-2 py-2 text-sm md:text-base text-gray-400">
+                        ...
+                      </span>
+                    );
+                  }
+                  
+                  pages.push(
+                    <button
+                      key={totalPages}
+                      onClick={() => {
+                        setCurrentPage(totalPages);
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                      className="px-2 md:px-4 py-2 text-sm md:text-base transition-colors border-b-2"
+                      style={{
+                        backgroundColor: 'transparent',
+                        color: currentPage === totalPages ? '#FBFBFB' : '#C2B79C',
+                        borderBottomColor: currentPage === totalPages ? '#FBFBFB' : 'rgba(194, 183, 156, 0.3)'
+                      }}
+                      onMouseEnter={(e) => {
+                        if (currentPage !== totalPages) {
+                          e.currentTarget.style.backgroundColor = 'rgba(194, 183, 156, 0.1)';
+                          e.currentTarget.style.borderBottomColor = '#C2B79C';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (currentPage !== totalPages) {
+                          e.currentTarget.style.backgroundColor = 'transparent';
+                          e.currentTarget.style.borderBottomColor = 'rgba(194, 183, 156, 0.3)';
+                        }
+                      }}
+                    >
+                      {totalPages}
+                    </button>
+                  );
+                }
+                
                 return pages;
               })()}
               
-              {/* 下一页 */}
-              <button
-                onClick={() => {
-                  setCurrentPage(prev => Math.min(totalPages, prev + 1));
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }}
-                disabled={currentPage === totalPages}
-                className="px-4 py-2 transition-colors border-b-2"
-                style={{
-                  backgroundColor: 'transparent',
-                  color: currentPage === totalPages ? '#6B7280' : '#C2B79C',
-                  borderBottomColor: currentPage === totalPages ? 'transparent' : 'rgba(194, 183, 156, 0.3)',
-                  cursor: currentPage === totalPages ? 'not-allowed' : 'pointer'
-                }}
-                onMouseEnter={(e) => {
-                  if (currentPage !== totalPages) {
-                    e.currentTarget.style.backgroundColor = 'rgba(194, 183, 156, 0.1)';
-                    e.currentTarget.style.borderBottomColor = '#C2B79C';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (currentPage !== totalPages) {
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                    e.currentTarget.style.borderBottomColor = 'rgba(194, 183, 156, 0.3)';
-                  }
-                }}
-              >
-                下一页
-              </button>
+                {/* 下一页 */}
+                <button
+                  onClick={() => {
+                    setCurrentPage(prev => Math.min(totalPages, prev + 1));
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  disabled={currentPage === totalPages}
+                  className="px-2 md:px-4 py-2 text-sm md:text-base transition-colors border-b-2"
+                  style={{
+                    backgroundColor: 'transparent',
+                    color: currentPage === totalPages ? '#6B7280' : '#C2B79C',
+                    borderBottomColor: currentPage === totalPages ? 'transparent' : 'rgba(194, 183, 156, 0.3)',
+                    cursor: currentPage === totalPages ? 'not-allowed' : 'pointer'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (currentPage !== totalPages) {
+                      e.currentTarget.style.backgroundColor = 'rgba(194, 183, 156, 0.1)';
+                      e.currentTarget.style.borderBottomColor = '#C2B79C';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (currentPage !== totalPages) {
+                      e.currentTarget.style.backgroundColor = 'transparent';
+                      e.currentTarget.style.borderBottomColor = 'rgba(194, 183, 156, 0.3)';
+                    }
+                  }}
+                >
+                  下一页
+                </button>
+              </div>
+              
+              {/* 跳转到指定页面 */}
+              <div className="flex items-center justify-center space-x-2">
+                <span className="text-gray-400 text-xs md:text-sm">跳转到</span>
+                <input
+                  type="text"
+                  value={jumpToPage}
+                  onChange={(e) => {
+                    // 只允许输入数字
+                    const value = e.target.value.replace(/[^0-9]/g, '');
+                    setJumpToPage(value);
+                  }}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      const pageNum = parseInt(jumpToPage);
+                      if (pageNum >= 1 && pageNum <= totalPages) {
+                        setCurrentPage(pageNum);
+                        setJumpToPage('');
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }
+                    }
+                  }}
+                  className="w-12 md:w-16 px-1 md:px-2 py-1 text-sm md:text-base text-center bg-transparent border focus:outline-none"
+                  style={{
+                    // 移除数字输入框的上下箭头
+                    WebkitAppearance: 'none',
+                    MozAppearance: 'textfield',
+                    borderColor: '#AEAEAE',
+                    color: '#AEAEAE'
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = '#C2B79C';
+                    e.target.style.color = '#C2B79C';
+                    e.target.style.boxShadow = '0 0 0 1px #C2B79C';
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = '#AEAEAE';
+                    e.target.style.color = '#AEAEAE';
+                    e.target.style.boxShadow = 'none';
+                  }}
+                  placeholder={currentPage.toString()}
+                />
+                <span className="text-gray-400 text-xs md:text-sm">页</span>
+                <button
+                  onClick={() => {
+                    const pageNum = parseInt(jumpToPage);
+                    if (pageNum >= 1 && pageNum <= totalPages) {
+                      setCurrentPage(pageNum);
+                      setJumpToPage('');
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }
+                  }}
+                  disabled={!jumpToPage || parseInt(jumpToPage) < 1 || parseInt(jumpToPage) > totalPages}
+                  className="px-2 md:px-3 py-1 text-xs md:text-sm transition-colors border"
+                  style={{
+                    backgroundColor: 'transparent',
+                    color: (!jumpToPage || parseInt(jumpToPage) < 1 || parseInt(jumpToPage) > totalPages) ? '#6B7280' : '#C2B79C',
+                    borderColor: (!jumpToPage || parseInt(jumpToPage) < 1 || parseInt(jumpToPage) > totalPages) ? '#6B7280' : '#C2B79C',
+                    cursor: (!jumpToPage || parseInt(jumpToPage) < 1 || parseInt(jumpToPage) > totalPages) ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  跳转
+                </button>
+              </div>
             </div>
           )}
         </>
@@ -650,7 +875,7 @@ const FactionDetailModal: React.FC<{ faction: Faction; onClose: () => void }> = 
 
         {/* 卡片容器 - 和预览卡片相同的结构，放大1.7倍 */}
         <div
-          className="relative rounded-xl shadow-2xl border border-opacity-20 border-white backdrop-blur-sm overflow-hidden"
+          className="relative rounded-xl shadow-2xl border border-opacity-20 border-white backdrop-blur-sm overflow-hidden faction-detail-modal"
           style={{
             width: '490px', // 288 * 1.7 = 489.6
             height: '685px', // 403 * 1.7 = 685.1
@@ -785,10 +1010,10 @@ const FactionDetailModal: React.FC<{ faction: Faction; onClose: () => void }> = 
             {/* 主战者效果描述 - 完整显示 */}
             <div className="text-center flex justify-center" style={{ 
               marginTop: (() => {
-                let baseMargin = 240;
+                let baseMargin = 280; // 从240增加到260，向下移动20px
                 if (faction.tags && faction.tags.length > 0) baseMargin -= 40;
                 if (faction.image) baseMargin -= 60;
-                return `${Math.max(baseMargin, 20)}px`;
+                return `${Math.max(baseMargin, 40)}px`; // 最小值也从20增加到40
               })()
             }}>
               <div 
