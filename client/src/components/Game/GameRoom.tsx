@@ -112,7 +112,7 @@ const GameRoom: React.FC = () => {
     const token = localStorage.getItem('token');
     if (token) {
       socketService.connect(token);
-      socketService.joinRoom(roomId, user.id, user.username);
+      socketService.joinRoom(roomId, user.id, user.username, spectateMode);
     } else {
       setError('未找到认证令牌或用户未登录');
       setIsLoading(false);
@@ -567,6 +567,10 @@ const GameRoom: React.FC = () => {
 
   const handleLeaveRoom = () => {
     if (window.confirm('确定要离开房间吗？')) {
+      // 确保在离开前发送leave-room事件
+      if (roomId) {
+        socketService.leaveRoom(roomId);
+      }
       navigate('/rooms');
     }
   };

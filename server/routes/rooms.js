@@ -65,6 +65,30 @@ router.get('/', async (req, res) => {
         });
       }
 
+      // 获取观战人信息
+      let spectatorCount = 0;
+      let formattedSpectators = [];
+      
+      // 优先从内存中的gameRooms获取观战人数据
+      if (gameRooms && gameRooms.has(room.id.toString())) {
+        const roomState = gameRooms.get(room.id.toString());
+        if (roomState.spectators) {
+          spectatorCount = roomState.spectators.length;
+          formattedSpectators = roomState.spectators.map(spectator => ({
+            _id: spectator.userId,
+            username: spectator.username
+          }));
+        }
+      } else {
+        // 如果内存中没有数据，从数据库获取
+        const spectators = room.spectators || [];
+        spectatorCount = spectators.length;
+        formattedSpectators = spectators.map(spectator => ({
+          _id: spectator.userId,
+          username: spectator.username
+        }));
+      }
+
       return {
         _id: room.id,
         name: room.name,
@@ -73,7 +97,7 @@ router.get('/', async (req, res) => {
           username: room.creator.username
         },
         players: formattedPlayers,
-        spectators: [], // 观众信息在列表中不显示具体用户，只显示数量
+        spectators: formattedSpectators, // 返回完整的观战人信息
         gameState: room.gameState,
         maxPlayers: room.maxPlayers,
         isActive: room.isActive,
@@ -81,6 +105,7 @@ router.get('/', async (req, res) => {
         // 添加准确的实时统计信息
         realTimeStats: {
           playerCount: playerCount,
+          spectatorCount: spectatorCount, // 添加观战人数统计
           playerTurns: (() => {
             const playerTurns = {};
             // 从内存中的游戏状态获取每个玩家的回合数

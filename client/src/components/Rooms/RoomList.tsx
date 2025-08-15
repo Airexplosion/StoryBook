@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { RootState } from '../../store/store';
 import { fetchRooms } from '../../store/slices/roomsSlice';
 import api from '../../services/api';
+import socketService from '../../services/socket';
 
 const RoomList: React.FC = () => {
   const dispatch = useDispatch();
@@ -12,9 +13,21 @@ const RoomList: React.FC = () => {
   const navigate = useNavigate();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [roomName, setRoomName] = useState('');
+  const [showSpectatorsModal, setShowSpectatorsModal] = useState(false);
+  const [selectedRoomSpectators, setSelectedRoomSpectators] = useState<any[]>([]);
+  const [selectedRoomName, setSelectedRoomName] = useState('');
 
   useEffect(() => {
     dispatch(fetchRooms() as any);
+    
+    // 设置定时刷新房间列表以获取实时观战人数据
+    const interval = setInterval(() => {
+      dispatch(fetchRooms() as any);
+    }, 5000); // 每5秒刷新一次
+    
+    return () => {
+      clearInterval(interval);
+    };
   }, [dispatch]);
 
   const handleCreateRoom = () => {
@@ -66,6 +79,30 @@ const RoomList: React.FC = () => {
   const canDeleteRoom = (room: any) => {
     if (!user) return false;
     return user.isAdmin || room.createdBy._id === user.id;
+  };
+
+  const handleViewSpectators = (room: any) => {
+    setSelectedRoomSpectators(room.spectators || []);
+    setSelectedRoomName(room.name);
+    setShowSpectatorsModal(true);
+  };
+
+  const handleCloseSpectatorsModal = () => {
+    setShowSpectatorsModal(false);
+    setSelectedRoomSpectators([]);
+    setSelectedRoomName('');
+  };
+
+  const formatSpectatorNames = (spectators: any[]) => {
+    if (!spectators || spectators.length === 0) {
+      return '暂无观战';
+    }
+    
+    const names = spectators.map(s => s.username).join('、');
+    if (names.length > 10) {
+      return names.substring(0, 10) + '...';
+    }
+    return names;
   };
 
   if (isLoading) {
@@ -172,10 +209,7 @@ const RoomList: React.FC = () => {
                 <span>{room.realTimeStats?.playerCount || room.players.length}/{room.maxPlayers}</span>
               </div>
               <div className="text-sm">
-                <div className="flex justify-between items-center mb-1">
-                  <span>已过回合数</span>
-                  <span>第{room.gameState.round}回合</span>
-                </div>
+
                 {room.players && room.players.length > 0 && (
                   <div className="text-xs space-y-1 mt-2">
                     {room.players.map((player, index) => (
@@ -190,6 +224,31 @@ const RoomList: React.FC = () => {
                     ))}
                   </div>
                 )}
+              </div>
+
+              {/* 观战人信息 */}
+              <div className="border-t border-gray-600 mt-3 pt-3">
+                <div className="flex justify-between items-center text-sm">
+                  <span>观战人</span>
+                  <span>{room.spectators?.length || 0}人</span>
+                </div>
+                <div className="flex justify-between items-center mt-2">
+                  <span className="text-xs truncate flex-1" style={{ color: '#CCCCCC' }}>
+                    {formatSpectatorNames(room.spectators)}
+                  </span>
+                  {room.spectators && room.spectators.length > 0 && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleViewSpectators(room);
+                      }}
+                      className="ml-2 px-2 py-1 text-xs rounded transition-colors hover:bg-gray-600"
+                      style={{ color: '#4F6A8D', backgroundColor: 'transparent' }}
+                    >
+                      查看
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -281,6 +340,77 @@ const RoomList: React.FC = () => {
                 }}
               >
                 创建
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 观战人查看模态框 */}
+      {showSpectatorsModal && (
+        <div className="fixed inset-0 flex items-center justify-center z-40 backdrop-blur-sm" style={{ backgroundColor: 'rgba(17, 17, 17, 0.8)' }}>
+          <div className="rounded-lg p-6 w-96 max-w-md mx-4" style={{ backgroundColor: '#414141' }}>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-medium" style={{ color: '#FBFBFB' }}>
+                房间观战人员
+              </h3>
+              <button
+                onClick={handleCloseSpectatorsModal}
+                className="p-1 rounded transition-colors hover:bg-gray-600"
+                style={{ color: '#AEAEAE' }}
+              >
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="mb-4">
+              <p className="text-sm" style={{ color: '#AEAEAE' }}>
+                房间: <span style={{ color: '#C2B79C' }}>{selectedRoomName}</span>
+              </p>
+              <p className="text-sm mt-1" style={{ color: '#AEAEAE' }}>
+                观战人数: <span style={{ color: '#FBFBFB' }}>{selectedRoomSpectators.length}</span>
+              </p>
+            </div>
+
+            <div className="max-h-60 overflow-y-auto mb-6">
+              {selectedRoomSpectators.length > 0 ? (
+                <div className="space-y-2">
+                  {selectedRoomSpectators.map((spectator, index) => (
+                    <div 
+                      key={spectator._id || index} 
+                      className="flex items-center p-2 rounded"
+                      style={{ backgroundColor: '#2A2A2A' }}
+                    >
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center mr-3" style={{ backgroundColor: '#4F6A8D' }}>
+                        <span className="text-xs font-medium" style={{ color: '#FBFBFB' }}>
+                          {spectator.username.charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                      <span className="text-sm" style={{ color: '#FBFBFB' }}>
+                        {spectator.username}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-sm" style={{ color: '#AEAEAE' }}>暂无观战人员</p>
+                </div>
+              )}
+            </div>
+            
+            <div className="flex justify-end">
+              <button
+                onClick={handleCloseSpectatorsModal}
+                className="px-4 py-2 rounded transition-colors"
+                style={{
+                  backgroundColor: '#4F6A8D',
+                  color: '#FBFBFB'
+                }}
+              >
+                关闭
               </button>
             </div>
           </div>

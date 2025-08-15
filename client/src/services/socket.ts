@@ -46,9 +46,9 @@ class SocketService {
     }
   }
 
-  joinRoom(roomId: string, userId: string, username: string) {
+  joinRoom(roomId: string, userId: string, username: string, spectate?: boolean) {
     if (this.socket) {
-      this.socket.emit('join-room', { roomId, userId, username });
+      this.socket.emit('join-room', { roomId, userId, username, spectate });
     }
   }
 

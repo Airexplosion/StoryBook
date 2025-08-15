@@ -87,7 +87,7 @@ export interface Room {
   createdAt: string;
   realTimeStats?: {
     playerCount: number;
-    spectatorCount: number;
+    spectatorCount?: number;
     playerTurns?: { [userId: string]: number };
   };
 }
@@ -136,6 +136,7 @@ export interface GamePlayer {
   showFirstPlayerDrawHint?: boolean;
   turnsCompleted?: number; // 玩家完成的回合数
   displayedHandCards?: Card[]; // 新增：玩家展示的手牌
+  customFields?: Array<{ id: string; name: string; value: number }>; // 新增：自定义字段
 }
 
 export interface GameState {

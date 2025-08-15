@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { GameState, Card, ModifiedCard } from '../../types';
 import { useColor } from '../../contexts/ColorContext';
 import { getDynamicClassName } from '../../utils/colorUtils';
@@ -204,8 +204,14 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, currentUserId, onGameA
     setShowModifyCardModal(true);
   };
 
-  const openCardDetailModal = (card: Card) => {
+  const openCardDetailModal = (card: Card, index?: number, zone?: 'battlefield' | 'effect' | 'graveyard' | 'hand' | 'deck') => {
     setViewingCard(card);
+    // 如果提供了位置信息，设置editingCardNote以便在详情模态框中显示备注按钮
+    if (index !== undefined && zone && !isSpectator) {
+      setEditingCardNote({ card: card as ModifiedCard, index, zone });
+    } else {
+      setEditingCardNote(null);
+    }
     setShowCardDetailModal(true);
   };
 
@@ -367,35 +373,49 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, currentUserId, onGameA
         {/* 手牌上的按钮 - 直接显示在卡牌上 */}
         {isHandCard && !isSpectator && (
           <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center space-y-1 z-[9999]">
-            <button
-              onClick={(e) => { 
-                e.stopPropagation(); 
-                handleCardPlay(card, index!, 'battlefield'); 
-              }}
-              className="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-xs"
-            >
-              牌桌
-            </button>
-            <button
-              onClick={(e) => { e.stopPropagation(); handleCardPlay(card, index!, 'effect'); }}
-              className="bg-purple-600 hover:bg-purple-700 text-white px-2 py-1 rounded text-xs"
-            >
-              效果区
-            </button>
-            <button
-              onClick={(e) => { e.stopPropagation(); handleCardDiscard(card, index!); }}
-              className="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-xs"
-            >
-              弃牌
-            </button>
-            <button
-              onClick={(e) => { e.stopPropagation(); handleRemoveCard(card, index!); }}
-              className="bg-red-800 hover:bg-red-900 text-white px-2 py-1 rounded text-xs"
-              title="从本局游戏中完全移除"
-            >
-              删除
-            </button>
             <div className="flex space-x-1">
+              <button
+                onClick={(e) => { 
+                  e.stopPropagation(); 
+                  handleCardPlay(card, index!, 'battlefield'); 
+                }}
+                className="bg-green-600 hover:bg-green-700 text-white px-1 py-1 rounded text-xs"
+              >
+                牌桌
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); handleCardPlay(card, index!, 'effect'); }}
+                className="bg-purple-600 hover:bg-purple-700 text-white px-1 py-1 rounded text-xs"
+              >
+                效果
+              </button>
+            </div>
+            <div className="flex space-x-1">
+              <button
+                onClick={(e) => { e.stopPropagation(); handleCardDiscard(card, index!); }}
+                className="bg-red-600 hover:bg-red-700 text-white px-1 py-1 rounded text-xs"
+              >
+                弃牌
+              </button>
+              <button
+                onClick={(e) => { 
+                  e.stopPropagation(); 
+                  onGameAction('copy-hand-card', { handIndex: index });
+                }}
+                className="bg-orange-600 hover:bg-orange-700 text-white px-1 py-1 rounded text-xs"
+                title="复制这张手牌"
+              >
+                复制
+              </button>
+            </div>
+            <div className="flex space-x-1">
+ <button
+                onClick={(e) => { e.stopPropagation(); handleReturnToDeck(card, index!, 'bottom'); }}
+                className="bg-gray-500 hover:bg-gray-600 text-white px-1 py-1 rounded text-xs"
+                title="返回牌堆底"
+              >
+                底部
+              </button>
               <button
                 onClick={(e) => { e.stopPropagation(); handleReturnToDeck(card, index!, 'top'); }}
                 className="bg-gray-600 hover:bg-gray-700 text-white px-1 py-1 rounded text-xs"
@@ -403,33 +423,24 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, currentUserId, onGameA
               >
                 顶部
               </button>
-              <button
-                onClick={(e) => { e.stopPropagation(); handleReturnToDeck(card, index!, 'bottom'); }}
-                className="bg-gray-500 hover:bg-gray-600 text-white px-1 py-1 rounded text-xs"
-                title="返回牌堆底"
-              >
-                底部
-              </button>
             </div>
             <div className="flex space-x-1">
+             
               <button
                 onClick={(e) => { 
                   e.stopPropagation(); 
-                  openCardDetailModal(card);
+                  openCardDetailModal(card, index, 'hand');
                 }}
                 className="bg-blue-600 hover:bg-blue-700 text-white px-1 py-1 rounded text-xs"
               >
                 查看
               </button>
-              <button
-                onClick={(e) => { 
-                  e.stopPropagation(); 
-                  openCardNoteModal(card, index!, 'hand');
-                }}
-                className="bg-purple-600 hover:bg-purple-700 text-white px-1 py-1 rounded text-xs"
-                title="添加/编辑备注"
+                            <button
+                onClick={(e) => { e.stopPropagation(); handleRemoveCard(card, index!); }}
+                className="bg-red-800 hover:bg-red-900 text-white px-1 py-1 rounded text-xs"
+                title="从本局游戏中完全移除"
               >
-                备注
+                删除
               </button>
             </div>
           </div>
@@ -476,6 +487,19 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, currentUserId, onGameA
               title="添加/编辑备注"
             >
               备注
+            </button>
+            <button
+              onClick={() => {
+                if (zone === 'battlefield') {
+                  onGameAction('copy-battlefield-card', { cardIndex: index });
+                } else if (zone === 'effect') {
+                  onGameAction('copy-effect-card', { cardIndex: index });
+                }
+              }}
+              className="bg-orange-600 hover:bg-orange-700 text-white px-1 py-1 rounded text-xs"
+              title="复制这张卡牌"
+            >
+              复制
             </button>
             <button
               onClick={() => onGameAction('discard-from-field', { cardIndex: index, zone })}
@@ -790,7 +814,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, currentUserId, onGameA
                   onClick={() => setShowMultiSelectModal(true)}
                   className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded text-sm transition-colors"
                 >
-                  多选
+                  多选（展示手牌、弃牌、调整费用）
                 </button>
               </div>
             )}
@@ -1020,12 +1044,26 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, currentUserId, onGameA
               </div>
             </div>
             
-            <button
-              onClick={() => setShowCardDetailModal(false)}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded transition-colors"
-            >
-              关闭
-            </button>
+            <div className="flex space-x-3">
+              {/* 只有在非观战模式下且卡牌有位置信息时才显示备注按钮 */}
+              {!isSpectator && editingCardNote && (
+                <button
+                  onClick={() => {
+                    setShowCardDetailModal(false);
+                    openCardNoteModal(viewingCard as ModifiedCard, editingCardNote.index, editingCardNote.zone);
+                  }}
+                  className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded transition-colors"
+                >
+                  编辑备注
+                </button>
+              )}
+              <button
+                onClick={() => setShowCardDetailModal(false)}
+                className={`${!isSpectator && editingCardNote ? 'flex-1' : 'w-full'} bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded transition-colors`}
+              >
+                关闭
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -19,20 +19,34 @@ const gameSlice = createSlice({
   initialState,
   reducers: {
     setGameState: (state, action: PayloadAction<Partial<GameState>>) => {
-      // Update top-level game state properties
+      // Update top-level game state properties first
       Object.assign(state, action.payload);
 
-      // Explicitly update players to ensure displayedHandCards is handled
+      // Explicitly update players to ensure all nested arrays are properly updated
       if (action.payload.players) {
         state.players = action.payload.players.map(newPlayer => {
           const existingPlayer = state.players.find(p => p.userId === newPlayer.userId);
           return {
             ...existingPlayer,
             ...newPlayer,
-            // Ensure displayedHandCards is updated
-            displayedHandCards: newPlayer.displayedHandCards || existingPlayer?.displayedHandCards || [],
+            // Ensure all arrays are properly updated to trigger re-renders
+            hand: newPlayer.hand ? [...newPlayer.hand] : (existingPlayer?.hand || []),
+            battlefield: newPlayer.battlefield ? [...newPlayer.battlefield] : (existingPlayer?.battlefield || []),
+            effectZone: newPlayer.effectZone ? [...newPlayer.effectZone] : (existingPlayer?.effectZone || []),
+            graveyard: newPlayer.graveyard ? [...newPlayer.graveyard] : (existingPlayer?.graveyard || []),
+            deck: newPlayer.deck ? [...newPlayer.deck] : (existingPlayer?.deck || []),
+            displayedHandCards: newPlayer.displayedHandCards ? [...newPlayer.displayedHandCards] : (existingPlayer?.displayedHandCards || []),
+            customFields: newPlayer.customFields ? [...newPlayer.customFields] : (existingPlayer?.customFields || []),
           };
         });
+      }
+
+      // Ensure gameBoard is also properly updated
+      if (action.payload.gameBoard) {
+        state.gameBoard = {
+          playerCards: action.payload.gameBoard.playerCards ? [...action.payload.gameBoard.playerCards] : [],
+          effectCards: action.payload.gameBoard.effectCards ? [...action.payload.gameBoard.effectCards] : [],
+        };
       }
     },
     updatePlayer: (state, action: PayloadAction<{ index: number; data: Partial<typeof state.players[0]> }>) => {

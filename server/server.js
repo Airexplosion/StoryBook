@@ -92,7 +92,7 @@ io.on('connection', (socket) => {
   // 加入房间
   socket.on('join-room', async (data) => {
     try {
-      const { roomId, userId, username } = data;
+      const { roomId, userId, username, spectate } = data;
       
       // 验证用户ID和用户名
       if (!userId || !username) {
@@ -100,7 +100,7 @@ io.on('connection', (socket) => {
         return;
       }
       
-      console.log(`[JOIN-ROOM] 用户尝试加入房间: userId=${userId}, username=${username}, socketId=${socket.id}, roomId=${roomId}`);
+      console.log(`[JOIN-ROOM] 用户尝试加入房间: userId=${userId}, username=${username}, socketId=${socket.id}, roomId=${roomId}, spectate=${spectate}`);
       
       socket.join(roomId);
       
@@ -138,40 +138,86 @@ io.on('connection', (socket) => {
           console.log(`[RESTORE] 恢复玩家: userId=${playerId}, username=${restoredPlayer.username}`);
         }
 
+        // 从数据库恢复观战者状态到内存
+        const restoredSpectators = [];
+        if (room.spectators && Array.isArray(room.spectators)) {
+          room.spectators.forEach(spectator => {
+            restoredSpectators.push({
+              userId: spectator.userId,
+              username: spectator.username,
+              socketId: null // 将在连接时更新
+            });
+          });
+        }
+
         gameRooms.set(roomId, {
           roomId,
           players: restoredPlayers,
-          spectators: [],
+          spectators: restoredSpectators,
           gameState: room.gameState,
           gameLog: room.gameLog || [] // 加载持久化的游戏日志
         });
         
-        console.log(`从数据库恢复房间 ${roomId} 的游戏状态，玩家数量: ${restoredPlayers.length}`);
+        console.log(`从数据库恢复房间 ${roomId} 的游戏状态，玩家数量: ${restoredPlayers.length}，观战者数量: ${restoredSpectators.length}`);
       }
       
       const roomState = gameRooms.get(roomId);
       const positions = room.positions;
       const playerStates = room.playerStates;
       
-      // 检查是否是原有玩家重新连接
-      const existingPlayer = roomState.players.find(p => p.userId === userId);
-      if (existingPlayer) {
-        // 更新现有玩家的socket信息
-        existingPlayer.socketId = socket.id;
-        existingPlayer.isActive = true;
-        existingPlayer.temporaryLeave = false;
-        console.log(`[RECONNECT] 玩家重新连接: userId=${userId}, username=${existingPlayer.username}, socketId=${socket.id}`);
+      // 如果是观战模式
+      if (spectate) {
+        // 检查是否已经是观战者
+        const existingSpectator = roomState.spectators.find(s => s.userId === userId);
+        if (existingSpectator) {
+          // 更新现有观战者的socket信息
+          existingSpectator.socketId = socket.id;
+          console.log(`[SPECTATOR-RECONNECT] 观战者重新连接: userId=${userId}, username=${existingSpectator.username}, socketId=${socket.id}`);
+        } else {
+          // 添加新观战者
+          roomState.spectators.push({
+            userId,
+            username,
+            socketId: socket.id
+          });
+          console.log(`[SPECTATOR-JOIN] 新观战者加入: userId=${userId}, username=${username}, socketId=${socket.id}`);
+          
+          // 同步更新数据库
+          let spectators = room.spectators || [];
+          const isAlreadySpectator = spectators.some(s => s.userId === userId);
+          if (!isAlreadySpectator) {
+            spectators.push({
+              userId: userId,
+              username: username
+            });
+            await room.update({ spectators });
+          }
+        }
+        
+        // 发送观战者状态
+        socket.emit('spectator-joined', { roomId, userId, username });
+        socket.to(roomId).emit('spectator-joined', { userId, username });
+      } else {
+        // 检查是否是原有玩家重新连接
+        const existingPlayer = roomState.players.find(p => p.userId === userId);
+        if (existingPlayer) {
+          // 更新现有玩家的socket信息
+          existingPlayer.socketId = socket.id;
+          existingPlayer.isActive = true;
+          existingPlayer.temporaryLeave = false;
+          console.log(`[RECONNECT] 玩家重新连接: userId=${userId}, username=${existingPlayer.username}, socketId=${socket.id}`);
+        }
+        
+        // 发送房间位置信息给客户端，让玩家选择位置
+        const isOriginalPlayer = playerStates[userId] !== undefined;
+        socket.emit('room-positions', {
+          positions,
+          canJoinAsPlayer: room.isLocked ? isOriginalPlayer : Object.values(positions).some(pos => pos === null),
+          playerStates: Object.keys(playerStates),
+          isLocked: room.isLocked,
+          isOriginalPlayer
+        });
       }
-      
-      // 发送房间位置信息给客户端，让玩家选择位置
-      const isOriginalPlayer = playerStates[userId] !== undefined;
-      socket.emit('room-positions', {
-        positions,
-        canJoinAsPlayer: room.isLocked ? isOriginalPlayer : Object.values(positions).some(pos => pos === null),
-        playerStates: Object.keys(playerStates),
-        isLocked: room.isLocked,
-        isOriginalPlayer
-      });
       
       socket.to(roomId).emit('user-joined', { userId, username, socketId: socket.id });
       console.log(`用户 ${username}(${userId}) 加入房间 ${roomId}, socketId: ${socket.id}`);
@@ -363,8 +409,22 @@ io.on('connection', (socket) => {
       if (spectator) {
         // 观众可以正常移除
         roomState.spectators = roomState.spectators.filter(s => s.socketId !== socket.id);
-        console.log(`观众 ${spectator.username || '匿名'} 离开房间 ${roomId}`);
+        console.log(`观战者 ${spectator.username} 离开房间 ${roomId}`);
+        
+        // 同步更新数据库
+        try {
+          if (room) {
+            let spectators = room.spectators || [];
+            spectators = spectators.filter(s => s.userId !== spectator.userId);
+            await room.update({ spectators });
+            console.log(`已从数据库中移除观战者 ${spectator.username}`);
+          }
+        } catch (error) {
+          console.error('更新数据库观战者信息失败:', error);
+        }
+        
         io.to(roomId).emit('game-state-update', roomState);
+        io.to(roomId).emit('spectator-left', { userId: spectator.userId, username: spectator.username });
       }
     }
     
@@ -673,8 +733,13 @@ io.on('connection', (socket) => {
             nextPlayer.deckSize--;
           }
           
-          // 增加费用上限（最大10）
-          nextPlayer.maxMana = Math.min(nextPlayer.maxMana + 1, 10);
+          // 增加费用上限的逻辑
+          // 如果费用上限小于10，则自动增长
+          // 如果费用上限已经是10或更高（玩家手动调整过），则不再自动增长
+          if (nextPlayer.maxMana < 10) {
+            nextPlayer.maxMana = Math.min(nextPlayer.maxMana + 1, 10);
+          }
+          // 如果玩家手动将费用上限调整到10以上，保持不变
           nextPlayer.mana = nextPlayer.maxMana; // 回合开始时费用充满
           
           // 增加章节进度
@@ -705,8 +770,13 @@ io.on('connection', (socket) => {
             extraTurnPlayer.deckSize--;
           }
           
-          // 增加费用上限（最大10）
-          extraTurnPlayer.maxMana = Math.min(extraTurnPlayer.maxMana + 1, 10);
+          // 增加费用上限的逻辑
+          // 如果费用上限小于10，则自动增长
+          // 如果费用上限已经是10或更高（玩家手动调整过），则不再自动增长
+          if (extraTurnPlayer.maxMana < 10) {
+            extraTurnPlayer.maxMana = Math.min(extraTurnPlayer.maxMana + 1, 10);
+          }
+          // 如果玩家手动将费用上限调整到10以上，保持不变
           extraTurnPlayer.mana = extraTurnPlayer.maxMana; // 回合开始时费用充满
           
           // 增加章节进度
@@ -781,6 +851,7 @@ io.on('connection', (socket) => {
             
             // 移除手牌
             player.hand.splice(playHandIndex, 1);
+            player.handSize--;
             
             const targetZone = zone === 'battlefield' ? player.battlefield : player.effectZone;
             
@@ -797,6 +868,14 @@ io.on('connection', (socket) => {
               targetZone.push(playedCard);
             }
             
+            // 确保游戏板状态存在
+            if (!roomState.gameState.gameBoard) {
+              roomState.gameState.gameBoard = {
+                playerCards: [],
+                effectCards: []
+              };
+            }
+            
             // 将卡牌添加到游戏板
             if (zone === 'battlefield') {
               roomState.gameState.gameBoard.playerCards.push({
@@ -810,12 +889,14 @@ io.on('connection', (socket) => {
               });
             }
             
-            player.handSize--;
             updateNeeded = true;
             const costMessage = playedCard.cost === 'X' ? '(X费用)' : `(消耗${playedCard.cost}费用)`;
             const positionMessage = typeof position === 'number' ? `到位置${position + 1}` : '';
             broadcastData.message = `${player.username} 使用了卡牌: ${playedCard.name} ${costMessage} ${positionMessage}`;
             broadcastData.cardData = playedCard; // 保存完整卡牌信息
+            
+            console.log(`[PLAY-CARD] ${player.username} 打出卡牌 ${playedCard.name} 到 ${zone}，位置: ${position}`);
+            console.log(`[PLAY-CARD] 更新后的 ${zone}:`, targetZone.map((card, idx) => ({ idx, name: card?.name || 'null' })));
           }
           break;
 
@@ -1546,6 +1627,140 @@ io.on('connection', (socket) => {
           broadcastData.message = data.message || `${player.username} 取消展示手牌`;
           break;
 
+        case 'copy-hand-card':
+          // 复制手牌
+          const { handIndex: copyHandIndex } = data;
+          if (player.hand && player.hand.length > copyHandIndex && copyHandIndex >= 0) {
+            const originalCard = player.hand[copyHandIndex];
+            const copiedCard = {
+              ...originalCard,
+              _id: `copy_${Date.now()}_${originalCard._id}`,
+              ownerId: userId
+            };
+            player.hand.push(copiedCard);
+            player.handSize++;
+            updateNeeded = true;
+            broadcastData.message = `${player.username} 复制了手牌: ${originalCard.name}`;
+            broadcastData.cardData = copiedCard;
+          }
+          break;
+
+        case 'copy-battlefield-card':
+          // 复制牌桌上的卡牌
+          const { cardIndex: copyBattlefieldIndex, position: copyPosition } = data;
+          if (player.battlefield && player.battlefield.length > copyBattlefieldIndex && copyBattlefieldIndex >= 0 && player.battlefield[copyBattlefieldIndex]) {
+            const originalBattlefieldCard = player.battlefield[copyBattlefieldIndex];
+            const copiedBattlefieldCard = {
+              ...originalBattlefieldCard,
+              _id: `copy_${Date.now()}_${originalBattlefieldCard._id}`,
+              ownerId: userId
+            };
+            
+            // 找到一个空位放置复制的卡牌
+            let targetPosition = -1;
+            if (typeof copyPosition === 'number' && copyPosition >= 0) {
+              // 如果指定了位置，检查该位置是否为空
+              if (copyPosition < player.battlefield.length && player.battlefield[copyPosition] === null) {
+                targetPosition = copyPosition;
+              } else if (copyPosition >= player.battlefield.length) {
+                // 扩展数组到指定位置
+                while (player.battlefield.length <= copyPosition) {
+                  player.battlefield.push(null);
+                }
+                targetPosition = copyPosition;
+              }
+            }
+            
+            // 如果没有指定位置或指定位置被占用，寻找第一个空位
+            if (targetPosition === -1) {
+              for (let i = 0; i < player.battlefieldSlots; i++) {
+                if (i >= player.battlefield.length || player.battlefield[i] === null) {
+                  // 确保数组足够大
+                  while (player.battlefield.length <= i) {
+                    player.battlefield.push(null);
+                  }
+                  targetPosition = i;
+                  break;
+                }
+              }
+            }
+            
+            if (targetPosition !== -1) {
+              player.battlefield[targetPosition] = copiedBattlefieldCard;
+              
+              // 添加到游戏板
+              roomState.gameState.gameBoard.playerCards.push({
+                ...copiedBattlefieldCard,
+                ownerId: userId
+              });
+              
+              updateNeeded = true;
+              broadcastData.message = `${player.username} 复制了牌桌上的卡牌: ${originalBattlefieldCard.name} 到位置${targetPosition + 1}`;
+              broadcastData.cardData = copiedBattlefieldCard;
+            } else {
+              broadcastData.message = `${player.username} 无法复制卡牌: 牌桌区域已满`;
+            }
+          }
+          break;
+
+        case 'copy-effect-card':
+          // 复制效果区的卡牌
+          const { cardIndex: copyEffectIndex, position: copyEffectPosition } = data;
+          if (player.effectZone && player.effectZone.length > copyEffectIndex && copyEffectIndex >= 0 && player.effectZone[copyEffectIndex]) {
+            const originalEffectCard = player.effectZone[copyEffectIndex];
+            const copiedEffectCard = {
+              ...originalEffectCard,
+              _id: `copy_${Date.now()}_${originalEffectCard._id}`,
+              ownerId: userId
+            };
+            
+            // 找到一个空位放置复制的卡牌
+            let targetEffectPosition = -1;
+            if (typeof copyEffectPosition === 'number' && copyEffectPosition >= 0) {
+              // 如果指定了位置，检查该位置是否为空
+              if (copyEffectPosition < player.effectZone.length && player.effectZone[copyEffectPosition] === null) {
+                targetEffectPosition = copyEffectPosition;
+              } else if (copyEffectPosition >= player.effectZone.length) {
+                // 扩展数组到指定位置
+                while (player.effectZone.length <= copyEffectPosition) {
+                  player.effectZone.push(null);
+                }
+                targetEffectPosition = copyEffectPosition;
+              }
+            }
+            
+            // 如果没有指定位置或指定位置被占用，寻找第一个空位
+            if (targetEffectPosition === -1) {
+              for (let i = 0; i < player.effectSlots; i++) {
+                if (i >= player.effectZone.length || player.effectZone[i] === null) {
+                  // 确保数组足够大
+                  while (player.effectZone.length <= i) {
+                    player.effectZone.push(null);
+                  }
+                  targetEffectPosition = i;
+                  break;
+                }
+              }
+            }
+            
+            if (targetEffectPosition !== -1) {
+              player.effectZone[targetEffectPosition] = copiedEffectCard;
+              
+              // 添加到游戏板
+              roomState.gameState.gameBoard.effectCards.push({
+                ...copiedEffectCard,
+                ownerId: userId
+              });
+              
+              updateNeeded = true;
+              broadcastData.message = `${player.username} 复制了效果区的卡牌: ${originalEffectCard.name} 到位置${targetEffectPosition + 1}`;
+              broadcastData.cardData = copiedEffectCard;
+            } else {
+              broadcastData.message = `${player.username} 无法复制卡牌: 效果区域已满`;
+            }
+          }
+          break;
+
       }
       
       // 发送游戏更新（如果有消息的话）
@@ -1589,7 +1804,28 @@ io.on('connection', (socket) => {
           battlefieldSlots: p.battlefieldSlots,
           effectSlots: p.effectSlots
         })));
-        io.to(roomId).emit('game-state-update', roomState);
+        
+        // 创建深拷贝的状态对象，确保状态变化能被正确检测
+        const stateUpdate = {
+          ...roomState,
+          players: roomState.players.map(player => ({
+            ...player,
+            battlefield: player.battlefield ? [...player.battlefield] : [],
+            effectZone: player.effectZone ? [...player.effectZone] : [],
+            hand: player.hand ? [...player.hand] : [],
+            graveyard: player.graveyard ? [...player.graveyard] : [],
+            deck: player.deck ? [...player.deck] : []
+          })),
+          gameState: {
+            ...roomState.gameState,
+            gameBoard: {
+              playerCards: roomState.gameState.gameBoard ? [...roomState.gameState.gameBoard.playerCards] : [],
+              effectCards: roomState.gameState.gameBoard ? [...roomState.gameState.gameBoard.effectCards] : []
+            }
+          }
+        };
+        
+        io.to(roomId).emit('game-state-update', stateUpdate);
         
         // 持久化保存游戏状态到数据库
         saveGameState(roomId, roomState).catch(error => {
@@ -1604,7 +1840,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('disconnect', () => {
+  socket.on('disconnect', async () => {
     console.log('用户断开连接:', socket.id);
     
     // 从所有房间中更新该玩家的socket信息，但不移除玩家数据
@@ -1633,7 +1869,22 @@ io.on('connection', (socket) => {
       if (spectatorInRoom) {
         // 观众可以正常移除
         roomState.spectators = roomState.spectators.filter(s => s.socketId !== socket.id);
+        console.log(`观战者 ${spectatorInRoom.username} 离开房间 ${roomId}`);
+        
+        // 同步更新数据库
+        try {
+          const room = await Room.findByPk(roomId);
+          if (room) {
+            let spectators = room.spectators || [];
+            spectators = spectators.filter(s => s.userId !== spectatorInRoom.userId);
+            await room.update({ spectators });
+          }
+        } catch (error) {
+          console.error('更新数据库观战者信息失败:', error);
+        }
+        
         io.to(roomId).emit('game-state-update', roomState);
+        io.to(roomId).emit('spectator-left', { userId: spectatorInRoom.userId, username: spectatorInRoom.username });
       }
     }
   });
