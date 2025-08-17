@@ -143,6 +143,250 @@ if (typeof document !== 'undefined') {
   }
 }
 
+// 关键字列表及其解释
+const keywords = [
+  { keyword: '登场', explanation: '此角色受到伤害后,无论是' },
+  { keyword: '遗愿', explanation: '你的回合结束时,若此牌' },
+  { keyword: '至终遗愿', explanation: '此角色造成一次伤害后,与' },
+  { keyword: '护卫', explanation: '此配角将进入故事中时,' },
+  { keyword: '至高护卫', explanation: '此配角第一次进入配角格厂' },
+  { keyword: '急进', explanation: '此配角第一次离开配角格厂' },
+  { keyword: '突转', explanation: '此角色死亡时,友方其他具' },
+  { keyword: '章节化', explanation: '使用此牌时,如果双方故事' },
+  { keyword: '暗线', explanation: '如果你在此回合内使用过' },
+  { keyword: '残响', explanation: '当敌方主角使用了【极光白' },
+  { keyword: '唤醒', explanation: '当敌方主角使用了【极光白' },
+  { keyword: '连系', explanation: '被锁定的角色无法进行攻击' },
+  { keyword: '推动', explanation: '本角色进行攻击后,触发厂' },
+  { keyword: '充盈', explanation: '当敌方一个配角将进行攻击' },
+  { keyword: '逆时', explanation: '使用本牌时,如果你本回合' },
+  { keyword: '狂进', explanation: '本配角不会被异度奇点抹汗' },
+  { keyword: '支援', explanation: '当你的生命小于敌方主角白' },
+  { keyword: '代偿', explanation: '你可以在支付此牌费用时,' },
+  { keyword: '译制', explanation: '如果你在此回合内杀死过百' },
+  { keyword: '神迹', explanation: '本角色受到的伤害减半(厂' },
+  { keyword: '传奇神迹', explanation: '在本回合内,如果有友方角' },
+  { keyword: '逸逃', explanation: '你从手中使用此牌后,再' },
+  { keyword: '诱变', explanation: '当此配角将受到致命伤害' },
+  { keyword: '花语', explanation: '此配角进入故事后,立即' },
+  { keyword: '伏笔', explanation: '在配角因伤害而死亡后,' },
+  { keyword: '科研', explanation: '若此牌不是本回合内抽取' },
+  { keyword: '追放', explanation: '仅限配角牌,于登场效果' },
+  { keyword: '兵刃', explanation: '不会获得指示物,不会被护' },
+  { keyword: '追忆', explanation: '此牌使用后,使你手中一' },
+  { keyword: '驱幻', explanation: '使用此牌时,若双方主角' },
+  { keyword: '焰灼', explanation: '此角色不受事件牌效果的是' },
+  { keyword: '淬毒', explanation: '防止本角色受到的来自故事' },
+  { keyword: '陷杀', explanation: '与此角色相对的敌方配角工' },
+  { keyword: '古械', explanation: '此角色无法被移动、不会' },
+  { keyword: '刚力', explanation: '仅限故事牌,在你使用此' },
+  { keyword: '柔劲', explanation: '你的每个回合结束时,你可' },
+  { keyword: '升华', explanation: '你可以在本配角进行主动工' },
+  { keyword: '双重升华', explanation: '仅限事件牌,使用时仅声日' },
+  { keyword: '冰寒', explanation: '若你在此回合内使用的上一' },
+  { keyword: '序言', explanation: '此角色受到伤害后,无论是' },
+  { keyword: '摇曳', explanation: '你的回合结束时,若此牌' },
+  { keyword: '顺时', explanation: '此角色造成一次伤害后,与' },
+  { keyword: '连击', explanation: '此配角将进入故事中时,' },
+  { keyword: '剑气连击', explanation: '此配角第一次进入配角格厂' },
+  { keyword: '斜刺', explanation: '此配角第一次离开配角格厂' },
+  { keyword: '反击', explanation: '此角色死亡时,友方其他具' },
+  { keyword: '尖刺', explanation: '使用此牌时,如果双方故事' },
+  { keyword: '狂想', explanation: '如果你在此回合内使用过' },
+  { keyword: '崩毀', explanation: '当敌方主角使用了【极光白' },
+  { keyword: '兵甲', explanation: '当敌方主角使用了【极光白' },
+  { keyword: '牧生', explanation: '被锁定的角色无法进行攻击' },
+  { keyword: '潮离', explanation: '本角色进行攻击后,触发厂' },
+  { keyword: '鲸落', explanation: '当敌方一个配角将进行攻击' },
+  { keyword: '珠光', explanation: '使用本牌时,如果你本回合' },
+  { keyword: '永劫', explanation: '本配角不会被异度奇点抹汗' },
+  { keyword: '幻彩', explanation: '当你的生命小于敌方主角白' },
+  { keyword: '永恒幻彩', explanation: '你可以在支付此牌费用时,' },
+  { keyword: '锁定', explanation: '如果你在此回合内杀死过百' },
+  { keyword: '冲阵', explanation: '本角色受到的伤害减半(厂' },
+  { keyword: '忍袭', explanation: '在本回合内,如果有友方角' },
+  { keyword: '五音', explanation: '你从手中使用此牌后,再' },
+  { keyword: '梦迴', explanation: '当此配角将受到致命伤害' },
+  { keyword: '抗争', explanation: '此配角进入故事后,立即' },
+  { keyword: '余晖', explanation: '在配角因伤害而死亡后,' },
+  { keyword: '枯荣', explanation: '若此牌不是本回合内抽取' },
+  { keyword: '绝志', explanation: '仅限配角牌,于登场效果' },
+  { keyword: '继遗', explanation: '不会获得指示物,不会被护' },
+  { keyword: '开卷', explanation: '此牌使用后,使你手中一' },
+  { keyword: '轮回', explanation: '使用此牌时,若双方主角' },
+  { keyword: '潜龙', explanation: '此角色不受事件牌效果的是' },
+  { keyword: '残核', explanation: '防止本角色受到的来自故事' },
+  { keyword: '转折', explanation: '与此角色相对的敌方配角工' },
+  { keyword: '刻命', explanation: '此角色无法被移动、不会' },
+  { keyword: '疫体', explanation: '仅限故事牌,在你使用此' },
+  { keyword: '代金', explanation: '你的每个回合结束时,你可' },
+  { keyword: '十诫', explanation: '你可以在本配角进行主动工' },
+  { keyword: '空视', explanation: '仅限事件牌,使用时仅声日' },
+  { keyword: '智律', explanation: '若你在此回合内使用的上一' },
+  { keyword: '沉梦', explanation: '此角色受到伤害后,无论是' },
+  { keyword: '稳定', explanation: '你的回合结束时,若此牌' },
+  { keyword: '返灵', explanation: '此角色造成一次伤害后,与' },
+  { keyword: '迅移', explanation: '此配角将进入故事中时,' },
+  { keyword: '迂回', explanation: '此配角第一次进入配角格厂' },
+  { keyword: '隐文', explanation: '此配角第一次离开配角格厂' },
+  { keyword: '接续', explanation: '此角色死亡时,友方其他具' }
+];
+
+// 格式化效果描述文本的辅助函数
+const formatEffectText = (text: string, setTooltip?: (tooltip: { isVisible: boolean; content: string; position: { x: number; y: number } }) => void) => {
+  if (!text) return '暂无效果描述';
+  
+  const parts = [];
+  let lastIndex = 0;
+  
+  // 遍历所有关键字，找到它们在文本中的位置
+  const matches: Array<{ keyword: string; index: number; endIndex: number; explanation: string }> = [];
+  keywords.forEach(keywordObj => {
+    let index = text.indexOf(keywordObj.keyword);
+    while (index !== -1) {
+      matches.push({ 
+        keyword: keywordObj.keyword, 
+        index, 
+        endIndex: index + keywordObj.keyword.length,
+        explanation: keywordObj.explanation
+      });
+      index = text.indexOf(keywordObj.keyword, index + 1);
+    }
+  });
+  
+  // 按位置排序
+  matches.sort((a, b) => a.index - b.index);
+  
+  // 处理重叠的关键字（取最长的）
+  const filteredMatches = [];
+  for (let i = 0; i < matches.length; i++) {
+    const current = matches[i];
+    let shouldAdd = true;
+    
+    for (let j = 0; j < filteredMatches.length; j++) {
+      const existing = filteredMatches[j];
+      // 检查是否重叠
+      if (current.index < existing.endIndex && current.endIndex > existing.index) {
+        // 如果当前关键字更长，替换现有的
+        if (current.keyword.length > existing.keyword.length) {
+          filteredMatches.splice(j, 1);
+          j--;
+        } else {
+          shouldAdd = false;
+          break;
+        }
+      }
+    }
+    
+    if (shouldAdd) {
+      filteredMatches.push(current);
+    }
+  }
+  
+  // 构建结果
+  for (const match of filteredMatches) {
+    // 添加匹配前的普通文本
+    if (match.index > lastIndex) {
+      parts.push(
+        <span key={`text-${lastIndex}`}>
+          {text.substring(lastIndex, match.index)}
+        </span>
+      );
+    }
+    
+    // 添加斜体关键字
+    if (setTooltip) {
+      parts.push(
+        <span 
+          key={`italic-${match.index}`} 
+          style={{ fontStyle: 'italic', fontWeight: 'bold', cursor: 'help' }}
+          onMouseEnter={(e) => {
+            const rect = e.currentTarget.getBoundingClientRect();
+            setTooltip({
+              isVisible: true,
+              content: match.explanation,
+              position: { 
+                x: rect.left + rect.width / 2, 
+                y: rect.top - 10 
+              }
+            });
+          }}
+          onMouseLeave={() => {
+            setTooltip({
+              isVisible: false,
+              content: '',
+              position: { x: 0, y: 0 }
+            });
+          }}
+        >
+          {match.keyword}
+        </span>
+      );
+    } else {
+      parts.push(
+        <span key={`italic-${match.index}`} style={{ fontStyle: 'italic', fontWeight: 'bold' }}>
+          {match.keyword}
+        </span>
+      );
+    }
+    
+    lastIndex = match.endIndex;
+  }
+  
+  // 添加剩余的普通文本
+  if (lastIndex < text.length) {
+    parts.push(
+      <span key={`text-${lastIndex}`}>
+        {text.substring(lastIndex)}
+      </span>
+    );
+  }
+  
+  return parts.length > 0 ? parts : text;
+};
+
+// 提示框组件
+const Tooltip: React.FC<{ 
+  children: React.ReactNode; 
+  content: string; 
+  isVisible: boolean; 
+  position: { x: number; y: number } 
+}> = ({ children, content, isVisible, position }) => {
+  return (
+    <div className="relative inline-block">
+      {children}
+      {isVisible && (
+        <div 
+          className="absolute z-50 px-3 py-2 text-sm rounded-lg shadow-lg border"
+          style={{
+            backgroundColor: '#2A2A2A',
+            color: '#FBFBFB',
+            borderColor: '#4F6A8D',
+            left: position.x,
+            top: position.y,
+            maxWidth: '300px',
+            whiteSpace: 'pre-wrap'
+          }}
+        >
+          {content}
+          <div 
+            className="absolute w-2 h-2 transform rotate-45"
+            style={{
+              backgroundColor: '#2A2A2A',
+              borderColor: '#4F6A8D',
+              borderLeft: '1px solid',
+              borderBottom: '1px solid',
+              left: '-6px',
+              top: '50%',
+              marginTop: '-4px'
+            }}
+          />
+        </div>
+      )}
+    </div>
+  );
+};
+
 const CardCollection: React.FC = () => {
   const location = useLocation();
   const [editingCard, setEditingCard] = useState<Card | null>(null);
@@ -176,6 +420,17 @@ const CardCollection: React.FC = () => {
   
   // 页面跳转状态
   const [jumpToPage, setJumpToPage] = useState('');
+
+  // 提示框状态
+  const [tooltip, setTooltip] = useState<{
+    isVisible: boolean;
+    content: string;
+    position: { x: number; y: number };
+  }>({
+    isVisible: false,
+    content: '',
+    position: { x: 0, y: 0 }
+  });
 
   // 分页状态
   const [currentPage, setCurrentPage] = useState(1);
@@ -214,6 +469,10 @@ const CardCollection: React.FC = () => {
   });
 
   const { user } = useSelector((state: RootState) => state.auth);
+
+
+
+
 
   // 加载卡牌数据
   const loadCards = async (page: number = currentPage) => {
@@ -470,6 +729,37 @@ const CardCollection: React.FC = () => {
 
   return (
     <div className="max-w-7xl mx-auto">
+      {/* 全局提示框 */}
+      {tooltip.isVisible && (
+        <div 
+          className="fixed z-50 px-3 py-2 text-sm rounded-lg shadow-lg border pointer-events-none"
+          style={{
+            backgroundColor: '#2A2A2A',
+            color: '#FBFBFB',
+            borderColor: '#4F6A8D',
+            left: tooltip.position.x,
+            top: tooltip.position.y,
+            maxWidth: '300px',
+            whiteSpace: 'pre-wrap',
+            transform: 'translateX(-50%)'
+          }}
+        >
+          {tooltip.content}
+          <div 
+            className="absolute w-2 h-2 transform rotate-45"
+            style={{
+              backgroundColor: '#2A2A2A',
+              borderColor: '#4F6A8D',
+              borderLeft: '1px solid',
+              borderBottom: '1px solid',
+              left: '50%',
+              top: '100%',
+              marginLeft: '-4px',
+              marginTop: '-1px'
+            }}
+          />
+        </div>
+      )}
       {/* 页面标题和搜索栏 */}
       <div className="mb-10">
         <div className="mb-4">
@@ -974,6 +1264,7 @@ const CardCollection: React.FC = () => {
                         card={card} 
                         onClick={() => handleCardClick(card)}
                         customFactions={customFactions}
+                        setTooltip={setTooltip}
                       />
                     </div>
                   </div>
@@ -1573,48 +1864,7 @@ const CardCollection: React.FC = () => {
   );
 };
 
-// 格式化效果描述文本的辅助函数
-const formatEffectText = (text: string) => {
-  if (!text) return '暂无效果描述';
-  
-  // 匹配两个中文字符后面跟空格，以及"登场~"
-  const regex = /([\u4e00-\u9fff]{2}\s)|(登场~)/g;
-  
-  const parts = [];
-  let lastIndex = 0;
-  let match;
-  
-  while ((match = regex.exec(text)) !== null) {
-    // 添加匹配前的普通文本
-    if (match.index > lastIndex) {
-      parts.push(
-        <span key={`text-${lastIndex}`}>
-          {text.substring(lastIndex, match.index)}
-        </span>
-      );
-    }
-    
-    // 添加斜体文本
-    parts.push(
-      <span key={`italic-${match.index}`} style={{ fontStyle: 'italic', fontWeight: 'bold' }}>
-        {match[0]}
-      </span>
-    );
-    
-    lastIndex = regex.lastIndex;
-  }
-  
-  // 添加剩余的普通文本
-  if (lastIndex < text.length) {
-    parts.push(
-      <span key={`text-${lastIndex}`}>
-        {text.substring(lastIndex)}
-      </span>
-    );
-  }
-  
-  return parts.length > 0 ? parts : text;
-};
+
 
 // 获取卡片背景图片的辅助函数
 const getCardBackground = (cardType: string) => {
@@ -1635,6 +1885,8 @@ const getCardBackground = (cardType: string) => {
       return '/Cardborder/SubcharC.png';
     case '故事牌':
       return '/Cardborder/StoryC.png';
+    case '关键字效果':
+      return '/Cardborder/KeyC.png';
     default:
       return '/Cardborder/defaultpic.png';
   }
@@ -1645,7 +1897,8 @@ const CardComponent: React.FC<{
   card: Card; 
   onClick: () => void;
   customFactions: Array<{ id: string; name: string; description?: string }>;
-}> = ({ card, onClick, customFactions }) => {
+  setTooltip: (tooltip: { isVisible: boolean; content: string; position: { x: number; y: number } }) => void;
+}> = ({ card, onClick, customFactions, setTooltip }) => {
   const cardBackground = getCardBackground(card.type);
   
   return (
@@ -1689,17 +1942,57 @@ const CardComponent: React.FC<{
         {/* 内容层 */}
         <div className="relative z-20">
           {/* 数值显示 - 左上角 */}
-          <div className="absolute flex flex-col space-y-1" style={{ top: '1px', left: '11px' }}>
+          <div className="absolute flex flex-col space-y-1" style={{ top: '-7px', left: '11px' }}>
             {/* 费用 */}
             <div 
               style={{ 
-                fontFamily: 'HYAoDeSaiJ, sans-serif',
-                fontSize: '20px',
-                fontWeight: 'bold',
-                color: '#debf97'
+                position: 'relative',
+                left: (card.type === '故事牌' || card.type === '主角牌' || card.type === '关键字效果') ? '-9px' : '-3px',
+                top: (card.type === '故事牌' || card.type === '主角牌' || card.type === '关键字效果') ? '24px' : (card.type === '配角牌') ? '5px' : '2px'
               }}
             >
-              {card.cost}
+              {(() => {
+                const cost = card.cost;
+                const numbersAndOtherSymbols = cost.replace(/\*/g, ''); // 数字和非*特殊字符一起显示
+                const asterisks = cost.match(/\*/g)?.join('') || ''; // 只提取*符号
+                
+                return (
+                  <>
+                    {/* 数字和其他特殊字符部分 */}
+                    <span 
+                      style={{ 
+                        fontFamily: 'Zoika-2, sans-serif',
+                        fontSize: numbersAndOtherSymbols.length >= 2 ? '23px' : '28px', // 两位数小三号字
+                        fontWeight: 'bold',
+                        color: (card.type === '故事牌' || card.type === '关键字效果') ? '#424453' : '#debf97',
+                        textShadow: '1px 0 0 #ffffff, -1px 0 0 #ffffff, 0 1px 0 #ffffff, 0 -1px 0 #ffffff', // 白色1px描边
+                        position: 'relative',
+                        left: numbersAndOtherSymbols.length >= 2 ? '-5px' : '0px', // 两位数往左5px
+                        top: numbersAndOtherSymbols.length >= 2 ? '3px' : '0px' // 两位数往下3px
+                      }}
+                    >
+                      {numbersAndOtherSymbols}
+                    </span>
+                    {/* *符号部分 - 单独定位 */}
+                    {asterisks && (
+                      <span 
+                        style={{ 
+                          fontFamily: 'Zoika-2, sans-serif',
+                          fontSize: '20px',
+                          fontWeight: 'bold',
+                          color: (card.type === '故事牌' || card.type === '关键字效果') ? '#424453' : '#debf97',
+                          textShadow: '1px 0 0 #ffffff, -1px 0 0 #ffffff, 0 1px 0 #ffffff, 0 -1px 0 #ffffff', // 白色1px描边
+                          position: 'relative',
+                          top: '2px',
+                          left: '4px'
+                        }}
+                      >
+                        {asterisks}
+                      </span>
+                    )}
+                  </>
+                );
+              })()}
             </div>
             
             {/* 攻击和生命（仅配角牌显示） */}
@@ -1707,26 +2000,42 @@ const CardComponent: React.FC<{
               <>
                 <div 
                   style={{ 
-                    fontFamily: 'HYAoDeSaiJ, sans-serif',
-                    fontSize: '18px',
+                    fontFamily: 'Zoika-2, sans-serif',
+                    fontSize: (card.attack?.toString().length ?? 0) >= 2 ? '22px' : '24px', // 两位数下调2px
                     fontWeight: 'bold',
                     color: '#4e4a44',
+                    textShadow: '1px 0 0 #ffffff, -1px 0 0 #ffffff, 0 1px 0 #ffffff, 0 -1px 0 #ffffff', // 白色1px描边
                     position: 'relative',
-                    left: '-16px',
-                    top: '4px'
+                    left: (card.attack?.toString().length ?? 0) >= 2 ? '-25px' : '-19px', // 两位数往左6px
+                    top: (() => {
+                      const costIsTwo = card.cost.replace(/\*/g, '').length >= 2; // 费用是否两位数
+                      const attackIsTwo = (card.attack?.toString().length ?? 0) >= 2; // 攻击是否两位数
+                      let topValue = -1; // 基础位置
+                      if (costIsTwo) topValue += 5; // 费用两位数往下5px
+                      if (attackIsTwo) topValue += 2; // 攻击两位数往下2px
+                      return `${topValue}px`;
+                    })()
                   }}
                 >
                   {card.attack}
                 </div>
                 <div 
                   style={{ 
-                    fontFamily: 'HYAoDeSaiJ, sans-serif',
-                    fontSize: '18px',
+                    fontFamily: 'Zoika-2, sans-serif',
+                    fontSize: (card.health?.toString().length ?? 0) >= 2 ? '22px' : '24px', // 两位数下调2px
                     fontWeight: 'bold',
                     color: '#c78151',
+                    textShadow: '1px 0 0 #ffffff, -1px 0 0 #ffffff, 0 1px 0 #ffffff, 0 -1px 0 #ffffff', // 白色1px描边
                     position: 'relative',
-                    left: '-2px',
-                    top: '6px'
+                    left: (card.health?.toString().length ?? 0) >= 2 ? '-11px' : '-5px', // 两位数往左6px
+                    top: (() => {
+                      const costIsTwo = card.cost.replace(/\*/g, '').length >= 2; // 费用是否两位数
+                      const healthIsTwo = (card.health?.toString().length ?? 0) >= 2; // 生命是否两位数
+                      let topValue = -8; // 基础位置
+                      if (costIsTwo) topValue += 5; // 费用两位数往下5px
+                      if (healthIsTwo) topValue += 2; // 生命两位数往下2px
+                      return `${topValue}px`;
+                    })()
                   }}
                 >
                   {card.health}
@@ -1742,10 +2051,23 @@ const CardComponent: React.FC<{
               fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif',
               fontSize: '15px',
               color: '#282A3A',
-              marginTop: '2px',
-              fontWeight: '550'
+              marginTop: '0px', // 从2px改为0px，往上移动2px
+              fontWeight: '550',
+              textShadow: '1px 0 0 white, -1px 0 0 white, 0 1px 0 white, 0 -1px 0 white' // 1px白色描边
             }}>
-              {card.name.replace(/\[.*?\]/g, '').trim()}
+              {(() => {
+                let displayName = card.name.replace(/\[.*?\]/g, '').trim();
+                // 如果是关键字效果牌，去掉【关键字】部分
+                if (card.type === '关键字效果') {
+                  displayName = displayName.replace(/【关键字】/g, '');
+                }
+                // 去掉【特殊机制】部分
+                displayName = displayName.replace(/【特殊机制】/g, '');
+                // 去掉【衍生牌】部分
+                displayName = displayName.replace(/【衍生牌】/g, '');
+                // 把点替换成·
+                return displayName.replace(/\./g, '·');
+              })()}
             </h3>
             {/* 提取[]内容作为副标题 - 现在在主标题下面 */}
             <div style={{ 
@@ -1763,62 +2085,110 @@ const CardComponent: React.FC<{
           </div>
 
           {/* 卡牌类型 - 纵向显示 */}
-          <div className="absolute" style={{ top: '176px', left: '-5px' }}>
-            <div 
-              style={{ 
-                fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif',
-                fontSize: '18px',
-                color: '#282A3A',
-                writingMode: 'vertical-rl',
-                textOrientation: 'upright',
-                letterSpacing: '1px'
-              }}
-            >
-              {(() => {
-                const type = card.type as string;
+          <div className="absolute" style={{ 
+            top: card.type === '关键字效果' ? '166px' : '176px', 
+            left: '-5px'
+          }}>
+            {(() => {
+              const type = card.type as string;
+              let displayText = '';
+              // 如果是故事牌或关键字效果，显示详细分类
+              if (type === '故事牌' || type === 'story' || type === '关键字效果') {
+                displayText = card.category || (type === '关键字效果' ? '关键字' : '故事');
+              } else {
                 switch (type) {
-                  case 'story': return '故事';
-                  case 'character': return '配角';
-                  case 'hero': return '主角';
-                  case '故事牌': return '故事';
-                  case '配角牌': return '配角';
-                  case '主角牌': return '主角';
-                  default: return type.replace('牌', '');
+                  case 'character': displayText = '配角'; break;
+                  case 'hero': displayText = '主角'; break;
+                  case '配角牌': displayText = '配角'; break;
+                  case '主角牌': displayText = '主角'; break;
+                  default: displayText = type.replace('牌', '');
                 }
-              })()}
-            </div>
+              }
+              
+              // 如果超过3个字，使用较小字体和调整位置
+              const isLongText = displayText.length > 3;
+              
+              return (
+                <div 
+                  style={{ 
+                    fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif',
+                    fontSize: isLongText ? '13px' : '18px', // 超过3个字的字体再小2px (15px -> 13px)
+                    color: '#282A3A',
+                    writingMode: 'vertical-rl',
+                    textOrientation: 'upright',
+                    letterSpacing: '1px',
+                    position: 'relative',
+                    left: isLongText ? '3px' : '0px', // 超过3个字的往右3px
+                    top: isLongText ? '3px' : '2px' // 3个字的往下2px，超过3个字的再往下1px (2px+1px=3px)
+                  }}
+                >
+                  {displayText}
+                </div>
+              );
+            })()}
           </div>
 
           {/* 卡牌效果描述 */}
-          <div className="text-center flex justify-center" style={{ marginTop: '220px' }}>
-            <div 
-              className="text-sm leading-relaxed"
-              style={{ 
-                color: '#111111',
-                textShadow: '1px 1px 2px rgba(255,255,255,0.8)',
-                display: '-webkit-box',
-                WebkitLineClamp: 3,
-                WebkitBoxOrient: 'vertical',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                width: '200px'
-              }}
-            >
-{formatEffectText(card.effect)}
-            </div>
+          <div className="text-center flex justify-center" style={{ marginTop: '220px', height: '65px' }}>
+                          <div 
+                className="text-sm leading-relaxed"
+                style={{ 
+                  color: '#111111',
+                  textShadow: '1px 1px 2px rgba(255,255,255,0.8)',
+                  display: '-webkit-box',
+                  WebkitLineClamp: 3,
+                  WebkitBoxOrient: 'vertical',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  width: '200px'
+                }}
+              >
+{formatEffectText(card.effect, setTooltip)}
+              </div>
           </div>
 
           {/* 风味文字 - 预览时不显示 */}
           
-          {/* 底部卡牌信息 - 相对于整个卡片容器定位 - 只有非主角牌才显示 */}
-          {card.type !== '主角牌' && card.faction && (
-            <div className="absolute left-0 right-0 text-center" style={{ bottom: '-54px' }}>
+          {/* 提取标题中【】内容显示 - 不适用于关键字牌 */}
+          {(() => {
+            // 排除关键字牌
+            if (card.type === '关键字效果') {
+              return null;
+            }
+            
+            const bracketMatch = card.name.match(/【(.*?)】/);
+            if (bracketMatch) {
+              return (
+                <div style={{
+                  position: 'absolute',
+                  left: '50%',
+                  top: 'calc(50% + 85px)',
+                  transform: 'translate(-50%, -50%)',
+                  fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif',
+                  fontSize: '12px',
+                  color: '#282A3A',
+                  textShadow: '1px 0 0 white, -1px 0 0 white, 0 1px 0 white, 0 -1px 0 white',
+                  letterSpacing: '0px',
+                  lineHeight: '1'
+                }}>
+                  {bracketMatch[1]}
+                </div>
+              );
+            }
+            return null;
+          })()}
+          
+          {/* 底部卡牌信息 - 相对于整个卡片容器定位 - 只有非主角牌且非关键字效果才显示 */}
+          {card.type !== '主角牌' && card.type !== '关键字效果' && card.faction && (
+            <div className="absolute left-0 right-0 text-center" style={{ 
+              bottom: card.faction.includes('中立') ? '-40px' : '-60px' /* 中立主角往上17px */
+            }}>
               {/* 主角名字 */}
               <div style={{ 
                 fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif',
                 fontSize: '14px',
                 color: '#FBFBFB',
-                textShadow: '0 3px 0 #282A3A',
+                textShadow: '0 3px 0 #282A3A, 1px 0 0 #282932, -1px 0 0 #282932, 0 1px 0 #282932, 0 -1px 0 #282932',
                 marginBottom: '-2px'
               }}>
                 {(() => {
@@ -1834,7 +2204,7 @@ const CardComponent: React.FC<{
                   fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif',
                   fontSize: '10px',
                   color: '#FBFBFB',
-                  textShadow: '0 3px 0 #282A3A',
+                  textShadow: '0 3px 0 #282A3A, 1px 0 0 #282932, -1px 0 0 #282932, 0 1px 0 #282932, 0 -1px 0 #282932',
                   marginBottom: '2px'
                 }}>
                   {card.faction.match(/\[(.*?)\]/)?.[1]}
@@ -1894,20 +2264,64 @@ const CardDetailModal: React.FC<{ card: Card; onClose: () => void }> = ({ card, 
           {/* 内容层 */}
           <div className="relative z-10 h-full flex flex-col">
             {/* 数值显示 - 左上角 */}
-            <div className="absolute flex flex-col space-y-2" style={{ top: '-5px', left: '22px' }}>
+            <div className="absolute flex flex-col space-y-2" style={{ 
+              top: card.type === '关键字效果' ? '25px' : '-13px', 
+              left: card.type === '关键字效果' ? '11px' : '22px' 
+            }}>
               {/* 费用 */}
               <div 
                 style={{ 
-                  fontFamily: 'HYAoDeSaiJ, sans-serif',
-                  fontSize: '30px',
-                  fontWeight: 'bold',
-                  color: '#debf97',
                   position: 'relative',
-                  top: '-7px',
-                  left: '-2px'
+                  top: card.type === '配角牌' ? '-7px' : 
+                       (card.type === '主角牌' || card.type === '故事牌') ? '23px' : // 再往下5px (18px -> 23px)
+                       card.type === '关键字效果' ? '-14px' : '-7px', // 往上2px (-12px -> -14px)
+                  left: card.type === '配角牌' ? '-5px' : 
+                        (card.type === '主角牌' || card.type === '故事牌') ? '-17px' : // 再往左5px (-12px -> -17px)
+                        card.type === '关键字效果' ? '-6px' : '-2px' // 往左1px (-5px -> -6px)
                 }}
               >
-                {card.cost}
+                {(() => {
+                  const cost = card.cost;
+                  const numbersAndOtherSymbols = cost.replace(/\*/g, ''); // 数字和非*特殊字符一起显示
+                  const asterisks = cost.match(/\*/g)?.join('') || ''; // 只提取*符号
+                  
+                  return (
+                    <>
+                      {/* 数字和其他特殊字符部分 */}
+                      <span 
+                        style={{ 
+                          fontFamily: 'Zoika-2, sans-serif',
+                          fontSize: numbersAndOtherSymbols.length >= 2 ? '39px' : '44px', // 两位数小三号字
+                          fontWeight: 'bold',
+                          color: (card.type === '故事牌' || card.type === '关键字效果') ? '#424453' : '#debf97',
+                          textShadow: '1px 0 0 #ffffff, -1px 0 0 #ffffff, 0 1px 0 #ffffff, 0 -1px 0 #ffffff', // 白色1px描边
+                          position: 'relative',
+                          left: numbersAndOtherSymbols.length >= 2 ? '-8px' : '0px', // 两位数往左8px
+                          top: numbersAndOtherSymbols.length >= 2 ? '3px' : '0px' // 两位数往下3px
+                        }}
+                      >
+                        {numbersAndOtherSymbols}
+                      </span>
+                      {/* *符号部分 - 单独定位 */}
+                      {asterisks && (
+                        <span 
+                          style={{ 
+                            fontFamily: 'Zoika-2, sans-serif',
+                            fontSize: '32px',
+                            fontWeight: 'bold',
+                            color: (card.type === '故事牌' || card.type === '关键字效果') ? '#424453' : '#debf97',
+                            textShadow: '1px 0 0 #ffffff, -1px 0 0 #ffffff, 0 1px 0 #ffffff, 0 -1px 0 #ffffff', // 白色1px描边
+                            position: 'relative',
+                            top: '-5px',
+                            left: '2px'
+                          }}
+                        >
+                          {asterisks}
+                        </span>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
               
               {/* 攻击和生命（仅配角牌显示） */}
@@ -1915,26 +2329,42 @@ const CardDetailModal: React.FC<{ card: Card; onClose: () => void }> = ({ card, 
                 <>
                   <div 
                     style={{ 
-                      fontFamily: 'HYAoDeSaiJ, sans-serif',
-                      fontSize: '27px',
+                      fontFamily: 'Zoika-2, sans-serif',
+                      fontSize: (card.attack?.toString().length ?? 0) >= 2 ? '39px' : '41px', // 两位数下调2px
                       fontWeight: 'bold',
                       color: '#4e4a44',
+                      textShadow: '1px 0 0 #ffffff, -1px 0 0 #ffffff, 0 1px 0 #ffffff, 0 -1px 0 #ffffff', // 白色1px描边
                       position: 'relative',
-                      left: '-29px',
-                      top: '5px'
+                      left: (card.attack?.toString().length ?? 0) >= 2 ? '-43px' : '-34px', // 两位数往左9px
+                      top: (() => {
+                        const costIsTwo = card.cost.replace(/\*/g, '').length >= 2; // 费用是否两位数
+                        const attackIsTwo = (card.attack?.toString().length ?? 0) >= 2; // 攻击是否两位数
+                        let topValue = -16; // 基础位置
+                        if (costIsTwo) topValue += 5; // 费用两位数往下5px
+                        if (attackIsTwo) topValue += 5; // 攻击两位数往下5px (2+3)
+                        return `${topValue}px`;
+                      })()
                     }}
                   >
                     {card.attack}
                   </div>
                   <div 
                     style={{ 
-                      fontFamily: 'HYAoDeSaiJ, sans-serif',
-                      fontSize: '27px',
+                      fontFamily: 'Zoika-2, sans-serif',
+                      fontSize: (card.health?.toString().length ?? 0) >= 2 ? '39px' : '41px', // 两位数下调2px
                       fontWeight: 'bold',
                       color: '#c78151',
+                      textShadow: '1px 0 0 #ffffff, -1px 0 0 #ffffff, 0 1px 0 #ffffff, 0 -1px 0 #ffffff', // 白色1px描边
                       position: 'relative',
-                      left: '-5px',
-                      top: '14px'
+                      left: (card.health?.toString().length ?? 0) >= 2 ? '-21px' : '-12px', // 两位数往左9px
+                      top: (() => {
+                        const costIsTwo = card.cost.replace(/\*/g, '').length >= 2; // 费用是否两位数
+                        const healthIsTwo = (card.health?.toString().length ?? 0) >= 2; // 生命是否两位数
+                        let topValue = -31; // 基础位置
+                        if (costIsTwo) topValue += 5; // 费用两位数往下5px
+                        if (healthIsTwo) topValue += 5; // 生命两位数往下5px (2+3)
+                        return `${topValue}px`;
+                      })()
                     }}
                   >
                     {card.health}
@@ -1952,10 +2382,23 @@ const CardDetailModal: React.FC<{ card: Card; onClose: () => void }> = ({ card, 
                 fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif',
                 fontSize: '25px',
                 color: '#282A3A',
-                marginTop: '0px',
-                fontWeight: '500'
+                marginTop: '-2px', // 从0px改为-2px，往上移动2px
+                fontWeight: '500',
+                textShadow: '1px 0 0 white, -1px 0 0 white, 0 1px 0 white, 0 -1px 0 white' // 1px白色描边
               }}>
-                {card.name.replace(/\[.*?\]/g, '').trim()}
+                {(() => {
+                  let displayName = card.name.replace(/\[.*?\]/g, '').trim();
+                  // 如果是关键字效果牌，去掉【关键字】部分
+                  if (card.type === '关键字效果') {
+                    displayName = displayName.replace(/【关键字】/g, '');
+                  }
+                  // 去掉【特殊机制】部分
+                  displayName = displayName.replace(/【特殊机制】/g, '');
+                  // 去掉【衍生牌】部分
+                  displayName = displayName.replace(/【衍生牌】/g, '');
+                  // 把点替换成·
+                  return displayName.replace(/\./g, '·');
+                })()}
               </h3>
               {/* 提取[]内容作为副标题 - 现在在主标题下面 */}
               <div style={{ 
@@ -1973,31 +2416,77 @@ const CardDetailModal: React.FC<{ card: Card; onClose: () => void }> = ({ card, 
             </div>
 
             {/* 卡牌类型 - 纵向显示 */}
-            <div className="absolute" style={{ top: '283px', left: '-9px' }}>
-              <div 
-                style={{ 
-                  fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif',
-                  fontSize: '31px',
-                  color: '#282A3A',
-                  writingMode: 'vertical-rl',
-                  textOrientation: 'upright',
-                  letterSpacing: '2px'
-                }}
-              >
-                {(() => {
-                  const type = card.type as string;
+            <div className="absolute" style={{ 
+              top: card.type === '关键字效果' ? '264px' : '283px', 
+              left: '-9px' 
+            }}>
+              {(() => {
+                const type = card.type as string;
+                let displayText = '';
+                // 如果是故事牌或关键字效果，显示详细分类
+                if (type === '故事牌' || type === 'story' || type === '关键字效果') {
+                  displayText = card.category || (type === '关键字效果' ? '关键字' : '故事');
+                } else {
                   switch (type) {
-                    case 'story': return '故事';
-                    case 'character': return '配角';
-                    case 'hero': return '主角';
-                    case '故事牌': return '故事';
-                    case '配角牌': return '配角';
-                    case '主角牌': return '主角';
-                    default: return type.replace('牌', '');
+                    case 'character': displayText = '配角'; break;
+                    case 'hero': displayText = '主角'; break;
+                    case '配角牌': displayText = '配角'; break;
+                    case '主角牌': displayText = '主角'; break;
+                    default: displayText = type.replace('牌', '');
                   }
-                })()}
-              </div>
+                }
+                
+                // 如果超过3个字，使用较小字体和调整位置
+                const isLongText = displayText.length > 3;
+                
+                return (
+                  <div 
+                    style={{ 
+                      fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif',
+                      fontSize: isLongText ? '22px' : '31px', // 超过3个字的字体再小2px (24px -> 22px)
+                      color: '#282A3A',
+                      writingMode: 'vertical-rl',
+                      textOrientation: 'upright',
+                      letterSpacing: '2px',
+                      position: 'relative',
+                      left: isLongText ? '8px' : '0px', // 超过3个字的往右8px (6px + 2px)
+                      top: isLongText ? '3px' : '0px' // 3个字的往上2px (2px -> 0px)，超过3个字的保持3px
+                    }}
+                  >
+                    {displayText}
+                  </div>
+                );
+              })()}
             </div>
+            
+            {/* 提取标题中【】内容显示 - 不适用于关键字牌 */}
+            {(() => {
+              // 排除关键字牌
+              if (card.type === '关键字效果') {
+                return null;
+              }
+              
+              const bracketMatch = card.name.match(/【(.*?)】/);
+              if (bracketMatch) {
+                return (
+                  <div style={{
+                    position: 'absolute',
+                    left: '50%',
+                    top: 'calc(50% + 85px)',
+                    transform: 'translate(-50%, -50%)',
+                    fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif',
+                    fontSize: '12px',
+                    color: '#282A3A',
+                    textShadow: '1px 0 0 white, -1px 0 0 white, 0 1px 0 white, 0 -1px 0 white',
+                    letterSpacing: '0px',
+                    lineHeight: '1'
+                  }}>
+                    {bracketMatch[1]}
+                  </div>
+                );
+              }
+              return null;
+            })()}
             
             {/* 其他信息 - 隐藏 */}
             {false && (
@@ -2013,7 +2502,7 @@ const CardDetailModal: React.FC<{ card: Card; onClose: () => void }> = ({ card, 
                   </span>
                 </div>
                 <div className="text-sm" style={{ color: '#918273' }}>
-                  {card.faction} • {card.category}
+                  <span style={{ letterSpacing: '-0.5px' }}>{card.faction}·{card.category}</span>
                 </div>
                 <div className="text-xs mt-1" style={{ color: '#666' }}>
                   创建者: {card.createdBy.username}
@@ -2024,12 +2513,12 @@ const CardDetailModal: React.FC<{ card: Card; onClose: () => void }> = ({ card, 
             {/* 详情、风味文字、创建者信息的容器 */}
             <div className="text-center overflow-y-auto custom-scrollbar" style={{ 
               marginTop: '334px', 
-              maxHeight: '150px',
+              height: '150px',
               scrollbarWidth: 'thin',
               scrollbarColor: '#918273 transparent'
             }}>
               {/* 卡牌效果描述 */}
-              <div className="flex justify-center" style={{ marginBottom: '10px' }}>
+              <div className="flex justify-center" style={{ marginBottom: '10px', marginTop: '5px' }}>
                 <div 
                   className="text-lg leading-relaxed"
                   style={{ 
@@ -2084,15 +2573,15 @@ const CardDetailModal: React.FC<{ card: Card; onClose: () => void }> = ({ card, 
               </div>
             </div>
 
-            {/* 底部卡牌信息 - 相对于整个卡片容器定位 - 只有非主角牌才显示 */}
-            {card.type !== '主角牌' && card.faction && (
+            {/* 底部卡牌信息 - 相对于整个卡片容器定位 - 只有非主角牌且非关键字效果才显示 */}
+            {card.type !== '主角牌' && card.type !== '关键字效果' && card.faction && (
               <div className="absolute left-0 right-0 text-center" style={{ bottom: '-53px' }}>
                 {/* 主角名字 */}
                 <div style={{ 
                   fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif',
                   fontSize: '24px', // 14px * 1.7
                   color: '#FBFBFB',
-                  textShadow: '0 5px 0 #282A3A', // 0 3px 0 * 1.7
+                  textShadow: '0 5px 0 #282A3A, 1px 0 0 #282932, -1px 0 0 #282932, 0 1px 0 #282932, 0 -1px 0 #282932', // 0 3px 0 * 1.7
                   marginBottom: '-3px' // -2px * 1.7
                 }}>
                   {(() => {
@@ -2108,7 +2597,7 @@ const CardDetailModal: React.FC<{ card: Card; onClose: () => void }> = ({ card, 
                     fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif',
                     fontSize: '17px', // 10px * 1.7
                     color: '#FBFBFB',
-                    textShadow: '0 5px 0 #282A3A', // 0 3px 0 * 1.7
+                    textShadow: '0 5px 0 #282A3A, 1px 0 0 #282932, -1px 0 0 #282932, 0 1px 0 #282932, 0 -1px 0 #282932', // 0 3px 0 * 1.7
                     marginBottom: '3px' // 2px * 1.7
                   }}>
                     {card.faction.match(/\[(.*?)\]/)?.[1]}

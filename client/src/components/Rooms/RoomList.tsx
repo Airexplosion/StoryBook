@@ -19,16 +19,11 @@ const RoomList: React.FC = () => {
 
   useEffect(() => {
     dispatch(fetchRooms() as any);
-    
-    // 设置定时刷新房间列表以获取实时观战人数据
-    const interval = setInterval(() => {
-      dispatch(fetchRooms() as any);
-    }, 5000); // 每5秒刷新一次
-    
-    return () => {
-      clearInterval(interval);
-    };
   }, [dispatch]);
+
+  const handleRefreshRooms = () => {
+    dispatch(fetchRooms() as any);
+  };
 
   const handleCreateRoom = () => {
     setShowCreateModal(true);
@@ -117,28 +112,52 @@ const RoomList: React.FC = () => {
     <div className="max-w-6xl mx-auto relative">
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-4xl font-semibold" style={{ color: '#FBFBFB', fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif' }}>对战房间</h1>
-        <button 
-          onClick={handleCreateRoom}
-          className="px-6 py-3 rounded-lg transition-all duration-500 ease-out relative overflow-hidden group border-2 text-xl"
-          style={{ 
-            backgroundColor: 'transparent',
-            color: '#C2B79C',
-            borderColor: '#C2B79C',
-            fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif',
-            fontWeight: '100'
-          }}
-        >
-          {/* 背景滑动效果 */}
-          <div
-            className="absolute inset-0 transition-transform duration-500 ease-out transform -translate-x-full group-hover:translate-x-0"
-            style={{ backgroundColor: '#C2B79C' }}
-          ></div>
-          
-          {/* 文字内容 */}
-          <span className="relative z-10 transition-colors duration-300 group-hover:text-white whitespace-nowrap">
-            创建房间
-          </span>
-        </button>
+        <div className="flex space-x-4">
+          <button 
+            onClick={handleRefreshRooms}
+            className="px-6 py-3 rounded-lg transition-all duration-300 ease-out relative overflow-hidden group border-2 text-xl"
+            style={{ 
+              backgroundColor: 'transparent',
+              color: '#4F6A8D',
+              borderColor: '#4F6A8D',
+              fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif',
+              fontWeight: '100'
+            }}
+          >
+            {/* 背景滑动效果 */}
+            <div
+              className="absolute inset-0 transition-transform duration-300 ease-out transform -translate-x-full group-hover:translate-x-0"
+              style={{ backgroundColor: '#4F6A8D' }}
+            ></div>
+            
+            {/* 文字内容 */}
+            <span className="relative z-10 transition-colors duration-300 group-hover:text-white whitespace-nowrap">
+              刷新
+            </span>
+          </button>
+          <button 
+            onClick={handleCreateRoom}
+            className="px-6 py-3 rounded-lg transition-all duration-500 ease-out relative overflow-hidden group border-2 text-xl"
+            style={{ 
+              backgroundColor: 'transparent',
+              color: '#C2B79C',
+              borderColor: '#C2B79C',
+              fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif',
+              fontWeight: '100'
+            }}
+          >
+            {/* 背景滑动效果 */}
+            <div
+              className="absolute inset-0 transition-transform duration-500 ease-out transform -translate-x-full group-hover:translate-x-0"
+              style={{ backgroundColor: '#C2B79C' }}
+            ></div>
+            
+            {/* 文字内容 */}
+            <span className="relative z-10 transition-colors duration-300 group-hover:text-white whitespace-nowrap">
+              创建房间
+            </span>
+          </button>
+        </div>
       </div>
 
       {error && (
