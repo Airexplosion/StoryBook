@@ -180,6 +180,7 @@ export interface Faction {
   description?: string;
   tags?: string[];
   image?: string;
+  storyLink?: string;
 }
 
 export interface GameConfig {

@@ -1219,6 +1219,10 @@ io.on('connection', (socket) => {
             if (player.deck) {
               if (deckPosition === 'top') {
                 player.deck.unshift(returnedCard); // 添加到牌堆顶部
+              } else if (deckPosition === 'random') {
+                // 随机插入到牌堆中的任意位置
+                const randomIndex = Math.floor(Math.random() * (player.deck.length + 1));
+                player.deck.splice(randomIndex, 0, returnedCard);
               } else {
                 player.deck.push(returnedCard); // 添加到牌堆底部
               }
@@ -1226,7 +1230,8 @@ io.on('connection', (socket) => {
             player.handSize--;
             player.deckSize++;
             updateNeeded = true;
-            const positionText = deckPosition === 'top' ? '顶部' : '底部';
+            const positionText = deckPosition === 'top' ? '顶部' : 
+                                deckPosition === 'random' ? '随机位置' : '底部';
             broadcastData.message = `${player.username} 将手牌返回牌库${positionText}: ${returnedCard.name}`;
           }
           break;
@@ -1347,6 +1352,42 @@ io.on('connection', (socket) => {
             player.handSize++;
             updateNeeded = true;
             broadcastData.message = `${player.username} 将场上的卡牌返回手牌: ${returnedFieldCard.name}`;
+          }
+          break;
+
+        case 'return-card-from-field-to-deck':
+          const { cardIndex: returnToDeckIndex, zone: returnToDeckZone, position: returnToDeckPosition } = data;
+          let returnedToDeckCard;
+          if (returnToDeckZone === 'battlefield' && player.battlefield.length > returnToDeckIndex && returnToDeckIndex >= 0 && player.battlefield[returnToDeckIndex]) {
+            returnedToDeckCard = player.battlefield[returnToDeckIndex];
+            player.battlefield[returnToDeckIndex] = null; // 设置为null而不是删除，保持位置
+            roomState.gameState.gameBoard.playerCards = roomState.gameState.gameBoard.playerCards.filter(
+              (card, idx) => !(idx === returnToDeckIndex && card.ownerId === userId)
+            );
+          } else if (returnToDeckZone === 'effect' && player.effectZone.length > returnToDeckIndex && returnToDeckIndex >= 0 && player.effectZone[returnToDeckIndex]) {
+            returnedToDeckCard = player.effectZone[returnToDeckIndex];
+            player.effectZone[returnToDeckIndex] = null; // 设置为null而不是删除，保持位置
+            roomState.gameState.gameBoard.effectCards = roomState.gameState.gameBoard.effectCards.filter(
+              (card, idx) => !(idx === returnToDeckIndex && card.ownerId === userId)
+            );
+          }
+          if (returnedToDeckCard) {
+            if (player.deck) {
+              if (returnToDeckPosition === 'top') {
+                player.deck.unshift(returnedToDeckCard); // 添加到牌堆顶部
+              } else if (returnToDeckPosition === 'random') {
+                // 随机插入到牌堆中的任意位置
+                const randomIndex = Math.floor(Math.random() * (player.deck.length + 1));
+                player.deck.splice(randomIndex, 0, returnedToDeckCard);
+              } else {
+                player.deck.push(returnedToDeckCard); // 添加到牌堆底部
+              }
+            }
+            player.deckSize++;
+            updateNeeded = true;
+            const positionText = returnToDeckPosition === 'top' ? '顶部' : 
+                                returnToDeckPosition === 'random' ? '随机位置' : '底部';
+            broadcastData.message = `${player.username} 将场上的卡牌返回牌库${positionText}: ${returnedToDeckCard.name}`;
           }
           break;
           
@@ -1757,6 +1798,105 @@ io.on('connection', (socket) => {
               broadcastData.cardData = copiedEffectCard;
             } else {
               broadcastData.message = `${player.username} 无法复制卡牌: 效果区域已满`;
+            }
+          }
+          break;
+
+        case 'move-card-in-zone':
+          // 同区域内移动卡牌
+          const { zone: moveZone, fromPosition, toPosition } = data;
+          let sourceZone;
+          if (moveZone === 'battlefield') {
+            sourceZone = player.battlefield;
+          } else if (moveZone === 'effect') {
+            sourceZone = player.effectZone;
+          }
+          
+          if (sourceZone && fromPosition >= 0 && toPosition >= 0 && fromPosition < sourceZone.length && sourceZone[fromPosition]) {
+            // 确保目标位置数组足够大
+            while (sourceZone.length <= toPosition) {
+              sourceZone.push(null);
+            }
+            
+            // 检查目标位置是否为空
+            if (sourceZone[toPosition] === null) {
+              const movedCard = sourceZone[fromPosition];
+              sourceZone[fromPosition] = null; // 清空原位置
+              sourceZone[toPosition] = movedCard; // 放到新位置
+              
+              updateNeeded = true;
+              const zoneText = moveZone === 'battlefield' ? '牌桌' : '效果';
+              broadcastData.message = `${player.username} 在${zoneText}区域内移动了卡牌: ${movedCard.name} (从位置${fromPosition + 1}到位置${toPosition + 1})`;
+              broadcastData.cardData = movedCard;
+              
+              console.log(`[MOVE-IN-ZONE] ${player.username} 在${zoneText}区域移动卡牌 ${movedCard.name} 从位置${fromPosition}到位置${toPosition}`);
+            } else {
+              broadcastData.message = `${player.username} 无法移动卡牌: 目标位置已被占用`;
+            }
+          }
+          break;
+
+        case 'move-card-between-zones':
+          // 不同区域间移动卡牌
+          const { fromZone, toZone, fromPosition: betweenFromPos, toPosition: betweenToPos } = data;
+          let sourceArea, targetArea;
+          
+          if (fromZone === 'battlefield') {
+            sourceArea = player.battlefield;
+          } else if (fromZone === 'effect') {
+            sourceArea = player.effectZone;
+          }
+          
+          if (toZone === 'battlefield') {
+            targetArea = player.battlefield;
+          } else if (toZone === 'effect') {
+            targetArea = player.effectZone;
+          }
+          
+          if (sourceArea && targetArea && betweenFromPos >= 0 && betweenToPos >= 0 && 
+              betweenFromPos < sourceArea.length && sourceArea[betweenFromPos]) {
+            
+            // 确保目标区域数组足够大
+            while (targetArea.length <= betweenToPos) {
+              targetArea.push(null);
+            }
+            
+            // 检查目标位置是否为空
+            if (targetArea[betweenToPos] === null) {
+              const movedCard = sourceArea[betweenFromPos];
+              sourceArea[betweenFromPos] = null; // 清空原位置
+              targetArea[betweenToPos] = movedCard; // 放到新位置
+              
+              // 更新游戏板状态
+              if (fromZone === 'battlefield' && toZone === 'effect') {
+                // 从牌桌移动到效果区
+                roomState.gameState.gameBoard.playerCards = roomState.gameState.gameBoard.playerCards.filter(
+                  (card, idx) => !(idx === betweenFromPos && card.ownerId === userId)
+                );
+                roomState.gameState.gameBoard.effectCards.push({
+                  ...movedCard,
+                  ownerId: userId
+                });
+              } else if (fromZone === 'effect' && toZone === 'battlefield') {
+                // 从效果区移动到牌桌
+                roomState.gameState.gameBoard.effectCards = roomState.gameState.gameBoard.effectCards.filter(
+                  (card, idx) => !(idx === betweenFromPos && card.ownerId === userId)
+                );
+                roomState.gameState.gameBoard.playerCards.push({
+                  ...movedCard,
+                  ownerId: userId
+                });
+              }
+              
+              updateNeeded = true;
+              const fromZoneText = fromZone === 'battlefield' ? '牌桌' : '效果';
+              const toZoneText = toZone === 'battlefield' ? '牌桌' : '效果';
+              broadcastData.message = `${player.username} 将卡牌从${fromZoneText}区域移动到${toZoneText}区域: ${movedCard.name} (位置${betweenFromPos + 1}→位置${betweenToPos + 1})`;
+              broadcastData.cardData = movedCard;
+              
+              console.log(`[MOVE-BETWEEN-ZONES] ${player.username} 移动卡牌 ${movedCard.name} 从${fromZone}位置${betweenFromPos}到${toZone}位置${betweenToPos}`);
+            } else {
+              broadcastData.message = `${player.username} 无法移动卡牌: 目标位置已被占用`;
             }
           }
           break;

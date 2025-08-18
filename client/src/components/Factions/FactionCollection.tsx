@@ -4,6 +4,7 @@ import { useLocation } from 'react-router-dom';
 import { RootState, AppDispatch } from '../../store/store';
 import { fetchConfig } from '../../store/slices/configSlice';
 import { Faction } from '../../types';
+import api from '../../services/api';
 
 // 添加CSS动画样式 - 卡背翻面效果
 const animationStyles = `
@@ -867,6 +868,50 @@ const FactionCard: React.FC<{
 
 // 主战者详情弹窗组件
 const FactionDetailModal: React.FC<{ faction: Faction; onClose: () => void }> = ({ faction, onClose }) => {
+  const { user } = useSelector((state: RootState) => state.auth);
+  const { config } = useSelector((state: RootState) => state.config);
+  const dispatch = useDispatch<AppDispatch>();
+  const [isEditingStoryLink, setIsEditingStoryLink] = useState(false);
+  const [storyLinkInput, setStoryLinkInput] = useState(faction.storyLink || '');
+
+  // 保存故事链接
+  const handleSaveStoryLink = async () => {
+    try {
+      if (!config?.factions) return;
+
+      const updatedFactions = config.factions.map(f => 
+        f.id === faction.id 
+          ? { ...f, storyLink: storyLinkInput.trim() }
+          : f
+      );
+
+      await api.config.updateFactions(updatedFactions);
+      await dispatch(fetchConfig());
+      setIsEditingStoryLink(false);
+    } catch (error) {
+      console.error('保存故事链接失败:', error);
+      alert('保存失败，请重试');
+    }
+  };
+
+  // 取消编辑
+  const handleCancelEdit = () => {
+    setStoryLinkInput(faction.storyLink || '');
+    setIsEditingStoryLink(false);
+  };
+
+  // 打开故事链接
+  const handleOpenStoryLink = () => {
+    if (faction.storyLink) {
+      let url = faction.storyLink.trim();
+      // 如果链接不是以 http:// 或 https:// 开头，则添加 https://
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        url = 'https://' + url;
+      }
+      window.open(url, '_blank');
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
       <div className="relative flex flex-col items-center">
@@ -1058,10 +1103,139 @@ const FactionDetailModal: React.FC<{ faction: Faction; onClose: () => void }> = 
           </div>
         </div>
         
-        {/* 关闭按钮 - 位于卡片下方30px，居中 */}
+        {/* 故事链接按钮区域 - 位于卡片和关闭按钮之间 */}
+        <div className="mt-6 flex flex-col items-center space-y-3">
+          {/* 管理员配置故事链接按钮 */}
+          {user?.isAdmin && (
+            <div className="flex flex-col items-center space-y-2">
+              {!isEditingStoryLink ? (
+                <button
+                  onClick={() => setIsEditingStoryLink(true)}
+                  className="px-4 py-2 rounded-lg transition-colors text-sm font-medium"
+                  style={{
+                    backgroundColor: 'rgba(79, 106, 141, 0.8)',
+                    color: '#FBFBFB',
+                    border: '1px solid rgba(79, 106, 141, 0.6)'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = 'rgba(79, 106, 141, 1)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'rgba(79, 106, 141, 0.8)';
+                  }}
+                >
+                  配置故事链接
+                </button>
+              ) : (
+                <div className="flex flex-col items-center space-y-2">
+                  <input
+                    type="url"
+                    value={storyLinkInput}
+                    onChange={(e) => setStoryLinkInput(e.target.value)}
+                    placeholder="请输入故事链接URL..."
+                    className="px-3 py-2 rounded border text-sm w-64"
+                    style={{
+                      backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                      color: '#333',
+                      borderColor: '#918273'
+                    }}
+                    onFocus={(e) => {
+                      e.target.style.borderColor = '#4F6A8D';
+                      e.target.style.boxShadow = '0 0 0 2px rgba(79, 106, 141, 0.3)';
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.borderColor = '#918273';
+                      e.target.style.boxShadow = 'none';
+                    }}
+                  />
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={handleSaveStoryLink}
+                      className="px-3 py-1 rounded text-xs font-medium transition-colors"
+                      style={{
+                        backgroundColor: 'rgba(34, 197, 94, 0.8)',
+                        color: '#FBFBFB',
+                        border: '1px solid rgba(34, 197, 94, 0.6)'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = 'rgba(34, 197, 94, 1)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'rgba(34, 197, 94, 0.8)';
+                      }}
+                    >
+                      保存
+                    </button>
+                    <button
+                      onClick={handleCancelEdit}
+                      className="px-3 py-1 rounded text-xs font-medium transition-colors"
+                      style={{
+                        backgroundColor: 'rgba(107, 114, 128, 0.8)',
+                        color: '#FBFBFB',
+                        border: '1px solid rgba(107, 114, 128, 0.6)'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = 'rgba(107, 114, 128, 1)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'rgba(107, 114, 128, 0.8)';
+                      }}
+                    >
+                      取消
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 非管理员查看故事链接按钮 */}
+          {!user?.isAdmin && faction.storyLink && (
+            <button
+              onClick={handleOpenStoryLink}
+              className="px-4 py-2 rounded-lg transition-colors text-sm font-medium"
+              style={{
+                backgroundColor: 'rgba(194, 183, 156, 0.8)',
+                color: '#282A3A',
+                border: '1px solid rgba(194, 183, 156, 0.6)'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(194, 183, 156, 1)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(194, 183, 156, 0.8)';
+              }}
+            >
+              查看故事
+            </button>
+          )}
+
+          {/* 管理员也可以查看故事链接 */}
+          {user?.isAdmin && faction.storyLink && !isEditingStoryLink && (
+            <button
+              onClick={handleOpenStoryLink}
+              className="px-4 py-2 rounded-lg transition-colors text-sm font-medium"
+              style={{
+                backgroundColor: 'rgba(194, 183, 156, 0.8)',
+                color: '#282A3A',
+                border: '1px solid rgba(194, 183, 156, 0.6)'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(194, 183, 156, 1)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(194, 183, 156, 0.8)';
+              }}
+            >
+              查看故事
+            </button>
+          )}
+        </div>
+
+        {/* 关闭按钮 - 位于故事链接按钮下方 */}
         <button
           onClick={onClose}
-          className="mt-8 rounded-full p-2 transition-colors shadow-lg hover:bg-gray-800 hover:bg-opacity-20"
+          className="mt-4 rounded-full p-2 transition-colors shadow-lg hover:bg-gray-800 hover:bg-opacity-20"
           style={{
             backgroundColor: 'transparent'
           }}

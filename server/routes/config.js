@@ -92,7 +92,8 @@ router.put('/factions', auth, adminAuth, async (req, res) => {
       name: faction.name,
       description: faction.description || '',
       tags: faction.tags || [],
-      image: faction.image || ''
+      image: faction.image || '',
+      storyLink: faction.storyLink || ''
     }));
     
     // 保存到数据库
