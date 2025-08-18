@@ -368,8 +368,7 @@ const FactionCollection: React.FC = () => {
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full px-3 py-2 bg-white bg-opacity-10 border border-gray-500 placeholder-gray-400 focus:outline-none"
-            style={{ color: '#FBFBFB' }}
+            className="w-full px-3 py-2 bg-white bg-opacity-10 border border-gray-500 text-white placeholder-gray-400 focus:outline-none"
             placeholder="输入主角名称或描述..."
             onFocus={(e) => {
               e.target.style.borderColor = '#918273';

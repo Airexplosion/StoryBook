@@ -6,6 +6,7 @@ import { Card, PaginatedResponse, PaginationInfo } from '../../types';
 import CardForm from './CardForm';
 import SearchableSelect from '../common/SearchableSelect';
 import api from '../../services/api';
+import { keywords, formatEffectText, TooltipState } from '../../utils/keywords';
 
 // 添加CSS动画样式 - 卡背翻面效果
 const animationStyles = `
@@ -143,207 +144,9 @@ if (typeof document !== 'undefined') {
   }
 }
 
-// 关键字列表及其解释
-const keywords = [
-  { keyword: '登场', explanation: '此角色受到伤害后,无论是' },
-  { keyword: '遗愿', explanation: '你的回合结束时,若此牌' },
-  { keyword: '至终遗愿', explanation: '此角色造成一次伤害后,与' },
-  { keyword: '护卫', explanation: '此配角将进入故事中时,' },
-  { keyword: '至高护卫', explanation: '此配角第一次进入配角格厂' },
-  { keyword: '急进', explanation: '此配角第一次离开配角格厂' },
-  { keyword: '突转', explanation: '此角色死亡时,友方其他具' },
-  { keyword: '章节化', explanation: '使用此牌时,如果双方故事' },
-  { keyword: '暗线', explanation: '如果你在此回合内使用过' },
-  { keyword: '残响', explanation: '当敌方主角使用了【极光白' },
-  { keyword: '唤醒', explanation: '当敌方主角使用了【极光白' },
-  { keyword: '连系', explanation: '被锁定的角色无法进行攻击' },
-  { keyword: '推动', explanation: '本角色进行攻击后,触发厂' },
-  { keyword: '充盈', explanation: '当敌方一个配角将进行攻击' },
-  { keyword: '逆时', explanation: '使用本牌时,如果你本回合' },
-  { keyword: '狂进', explanation: '本配角不会被异度奇点抹汗' },
-  { keyword: '支援', explanation: '当你的生命小于敌方主角白' },
-  { keyword: '代偿', explanation: '你可以在支付此牌费用时,' },
-  { keyword: '译制', explanation: '如果你在此回合内杀死过百' },
-  { keyword: '神迹', explanation: '本角色受到的伤害减半(厂' },
-  { keyword: '传奇神迹', explanation: '在本回合内,如果有友方角' },
-  { keyword: '逸逃', explanation: '你从手中使用此牌后,再' },
-  { keyword: '诱变', explanation: '当此配角将受到致命伤害' },
-  { keyword: '花语', explanation: '此配角进入故事后,立即' },
-  { keyword: '伏笔', explanation: '在配角因伤害而死亡后,' },
-  { keyword: '科研', explanation: '若此牌不是本回合内抽取' },
-  { keyword: '追放', explanation: '仅限配角牌,于登场效果' },
-  { keyword: '兵刃', explanation: '不会获得指示物,不会被护' },
-  { keyword: '追忆', explanation: '此牌使用后,使你手中一' },
-  { keyword: '驱幻', explanation: '使用此牌时,若双方主角' },
-  { keyword: '焰灼', explanation: '此角色不受事件牌效果的是' },
-  { keyword: '淬毒', explanation: '防止本角色受到的来自故事' },
-  { keyword: '陷杀', explanation: '与此角色相对的敌方配角工' },
-  { keyword: '古械', explanation: '此角色无法被移动、不会' },
-  { keyword: '刚力', explanation: '仅限故事牌,在你使用此' },
-  { keyword: '柔劲', explanation: '你的每个回合结束时,你可' },
-  { keyword: '升华', explanation: '你可以在本配角进行主动工' },
-  { keyword: '双重升华', explanation: '仅限事件牌,使用时仅声日' },
-  { keyword: '冰寒', explanation: '若你在此回合内使用的上一' },
-  { keyword: '序言', explanation: '此角色受到伤害后,无论是' },
-  { keyword: '摇曳', explanation: '你的回合结束时,若此牌' },
-  { keyword: '顺时', explanation: '此角色造成一次伤害后,与' },
-  { keyword: '连击', explanation: '此配角将进入故事中时,' },
-  { keyword: '剑气连击', explanation: '此配角第一次进入配角格厂' },
-  { keyword: '斜刺', explanation: '此配角第一次离开配角格厂' },
-  { keyword: '反击', explanation: '此角色死亡时,友方其他具' },
-  { keyword: '尖刺', explanation: '使用此牌时,如果双方故事' },
-  { keyword: '狂想', explanation: '如果你在此回合内使用过' },
-  { keyword: '崩毀', explanation: '当敌方主角使用了【极光白' },
-  { keyword: '兵甲', explanation: '当敌方主角使用了【极光白' },
-  { keyword: '牧生', explanation: '被锁定的角色无法进行攻击' },
-  { keyword: '潮离', explanation: '本角色进行攻击后,触发厂' },
-  { keyword: '鲸落', explanation: '当敌方一个配角将进行攻击' },
-  { keyword: '珠光', explanation: '使用本牌时,如果你本回合' },
-  { keyword: '永劫', explanation: '本配角不会被异度奇点抹汗' },
-  { keyword: '幻彩', explanation: '当你的生命小于敌方主角白' },
-  { keyword: '永恒幻彩', explanation: '你可以在支付此牌费用时,' },
-  { keyword: '锁定', explanation: '如果你在此回合内杀死过百' },
-  { keyword: '冲阵', explanation: '本角色受到的伤害减半(厂' },
-  { keyword: '忍袭', explanation: '在本回合内,如果有友方角' },
-  { keyword: '五音', explanation: '你从手中使用此牌后,再' },
-  { keyword: '梦迴', explanation: '当此配角将受到致命伤害' },
-  { keyword: '抗争', explanation: '此配角进入故事后,立即' },
-  { keyword: '余晖', explanation: '在配角因伤害而死亡后,' },
-  { keyword: '枯荣', explanation: '若此牌不是本回合内抽取' },
-  { keyword: '绝志', explanation: '仅限配角牌,于登场效果' },
-  { keyword: '继遗', explanation: '不会获得指示物,不会被护' },
-  { keyword: '开卷', explanation: '此牌使用后,使你手中一' },
-  { keyword: '轮回', explanation: '使用此牌时,若双方主角' },
-  { keyword: '潜龙', explanation: '此角色不受事件牌效果的是' },
-  { keyword: '残核', explanation: '防止本角色受到的来自故事' },
-  { keyword: '转折', explanation: '与此角色相对的敌方配角工' },
-  { keyword: '刻命', explanation: '此角色无法被移动、不会' },
-  { keyword: '疫体', explanation: '仅限故事牌,在你使用此' },
-  { keyword: '代金', explanation: '你的每个回合结束时,你可' },
-  { keyword: '十诫', explanation: '你可以在本配角进行主动工' },
-  { keyword: '空视', explanation: '仅限事件牌,使用时仅声日' },
-  { keyword: '智律', explanation: '若你在此回合内使用的上一' },
-  { keyword: '沉梦', explanation: '此角色受到伤害后,无论是' },
-  { keyword: '稳定', explanation: '你的回合结束时,若此牌' },
-  { keyword: '返灵', explanation: '此角色造成一次伤害后,与' },
-  { keyword: '迅移', explanation: '此配角将进入故事中时,' },
-  { keyword: '迂回', explanation: '此配角第一次进入配角格厂' },
-  { keyword: '隐文', explanation: '此配角第一次离开配角格厂' },
-  { keyword: '接续', explanation: '此角色死亡时,友方其他具' }
-];
 
-// 格式化效果描述文本的辅助函数
-const formatEffectText = (text: string, setTooltip?: (tooltip: { isVisible: boolean; content: string; position: { x: number; y: number } }) => void) => {
-  if (!text) return '暂无效果描述';
-  
-  const parts = [];
-  let lastIndex = 0;
-  
-  // 遍历所有关键字，找到它们在文本中的位置
-  const matches: Array<{ keyword: string; index: number; endIndex: number; explanation: string }> = [];
-  keywords.forEach(keywordObj => {
-    let index = text.indexOf(keywordObj.keyword);
-    while (index !== -1) {
-      matches.push({ 
-        keyword: keywordObj.keyword, 
-        index, 
-        endIndex: index + keywordObj.keyword.length,
-        explanation: keywordObj.explanation
-      });
-      index = text.indexOf(keywordObj.keyword, index + 1);
-    }
-  });
-  
-  // 按位置排序
-  matches.sort((a, b) => a.index - b.index);
-  
-  // 处理重叠的关键字（取最长的）
-  const filteredMatches = [];
-  for (let i = 0; i < matches.length; i++) {
-    const current = matches[i];
-    let shouldAdd = true;
-    
-    for (let j = 0; j < filteredMatches.length; j++) {
-      const existing = filteredMatches[j];
-      // 检查是否重叠
-      if (current.index < existing.endIndex && current.endIndex > existing.index) {
-        // 如果当前关键字更长，替换现有的
-        if (current.keyword.length > existing.keyword.length) {
-          filteredMatches.splice(j, 1);
-          j--;
-        } else {
-          shouldAdd = false;
-          break;
-        }
-      }
-    }
-    
-    if (shouldAdd) {
-      filteredMatches.push(current);
-    }
-  }
-  
-  // 构建结果
-  for (const match of filteredMatches) {
-    // 添加匹配前的普通文本
-    if (match.index > lastIndex) {
-      parts.push(
-        <span key={`text-${lastIndex}`}>
-          {text.substring(lastIndex, match.index)}
-        </span>
-      );
-    }
-    
-    // 添加斜体关键字
-    if (setTooltip) {
-      parts.push(
-        <span 
-          key={`italic-${match.index}`} 
-          style={{ fontStyle: 'italic', fontWeight: 'bold', cursor: 'help' }}
-          onMouseEnter={(e) => {
-            const rect = e.currentTarget.getBoundingClientRect();
-            setTooltip({
-              isVisible: true,
-              content: match.explanation,
-              position: { 
-                x: rect.left + rect.width / 2, 
-                y: rect.top - 10 
-              }
-            });
-          }}
-          onMouseLeave={() => {
-            setTooltip({
-              isVisible: false,
-              content: '',
-              position: { x: 0, y: 0 }
-            });
-          }}
-        >
-          {match.keyword}
-        </span>
-      );
-    } else {
-      parts.push(
-        <span key={`italic-${match.index}`} style={{ fontStyle: 'italic', fontWeight: 'bold' }}>
-          {match.keyword}
-        </span>
-      );
-    }
-    
-    lastIndex = match.endIndex;
-  }
-  
-  // 添加剩余的普通文本
-  if (lastIndex < text.length) {
-    parts.push(
-      <span key={`text-${lastIndex}`}>
-        {text.substring(lastIndex)}
-      </span>
-    );
-  }
-  
-  return parts.length > 0 ? parts : text;
-};
+
+
 
 // 提示框组件
 const Tooltip: React.FC<{ 
@@ -422,11 +225,7 @@ const CardCollection: React.FC = () => {
   const [jumpToPage, setJumpToPage] = useState('');
 
   // 提示框状态
-  const [tooltip, setTooltip] = useState<{
-    isVisible: boolean;
-    content: string;
-    position: { x: number; y: number };
-  }>({
+  const [tooltip, setTooltip] = useState<TooltipState>({
     isVisible: false,
     content: '',
     position: { x: 0, y: 0 }
@@ -732,7 +531,7 @@ const CardCollection: React.FC = () => {
       {/* 全局提示框 */}
       {tooltip.isVisible && (
         <div 
-          className="fixed z-50 px-3 py-2 text-sm rounded-lg shadow-lg border pointer-events-none"
+          className="fixed z-[9999] px-3 py-2 text-sm rounded-lg shadow-lg border pointer-events-none"
           style={{
             backgroundColor: '#2A2A2A',
             color: '#FBFBFB',
@@ -1264,7 +1063,6 @@ const CardCollection: React.FC = () => {
                         card={card} 
                         onClick={() => handleCardClick(card)}
                         customFactions={customFactions}
-                        setTooltip={setTooltip}
                       />
                     </div>
                   </div>
@@ -1275,8 +1073,8 @@ const CardCollection: React.FC = () => {
           
           {/* 分页控件 */}
           {totalPages > 1 && (
-            <div className="mt-12 flex flex-col justify-center items-center space-y-4">
-              {/* 移动端：页码按钮组 */}
+            <div className="mt-12 flex flex-col md:flex-row justify-center items-center space-y-4 md:space-y-0 md:space-x-2">
+              {/* 页码按钮容器 */}
               <div className="flex justify-center items-center space-x-1 md:space-x-2 flex-wrap">
               {/* 上一页 */}
               <button
@@ -1285,7 +1083,7 @@ const CardCollection: React.FC = () => {
                   window.scrollTo({ top: 0, behavior: 'smooth' });
                 }}
                 disabled={currentPage === 1}
-                className="px-2 md:px-4 py-2 transition-colors border-b-2 text-sm md:text-base"
+                className="px-2 md:px-4 py-2 text-sm md:text-base transition-colors border-b-2"
                 style={{
                   backgroundColor: 'transparent',
                   color: currentPage === 1 ? '#6B7280' : '#C2B79C',
@@ -1329,7 +1127,7 @@ const CardCollection: React.FC = () => {
                         setCurrentPage(1);
                         window.scrollTo({ top: 0, behavior: 'smooth' });
                       }}
-                      className="px-2 md:px-4 py-2 transition-colors border-b-2 text-sm md:text-base"
+                      className="px-2 md:px-4 py-2 text-sm md:text-base transition-colors border-b-2"
                       style={{
                         backgroundColor: 'transparent',
                         color: currentPage === 1 ? '#FBFBFB' : '#C2B79C',
@@ -1354,9 +1152,9 @@ const CardCollection: React.FC = () => {
                   
                   if (startPage > 2) {
                     pages.push(
-                      <span key="start-ellipsis" className="px-1 md:px-2 py-2 text-gray-400 text-sm md:text-base">
-                        ...
-                      </span>
+                                          <span key="start-ellipsis" className="px-1 md:px-2 py-2 text-sm md:text-base text-gray-400">
+                      ...
+                    </span>
                     );
                   }
                 }
@@ -1367,18 +1165,18 @@ const CardCollection: React.FC = () => {
                   if ((startPage > 1 && i === 1) || (endPage < totalPages && i === totalPages)) continue;
                   
                   pages.push(
-                    <button
-                      key={i}
-                      onClick={() => {
-                        setCurrentPage(i);
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                      }}
-                      className="px-2 md:px-4 py-2 transition-colors border-b-2 text-sm md:text-base"
-                      style={{
-                        backgroundColor: 'transparent',
-                        color: currentPage === i ? '#FBFBFB' : '#C2B79C',
-                        borderBottomColor: currentPage === i ? '#FBFBFB' : 'rgba(194, 183, 156, 0.3)'
-                      }}
+                                      <button
+                    key={i}
+                    onClick={() => {
+                      setCurrentPage(i);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    className="px-2 md:px-4 py-2 text-sm md:text-base transition-colors border-b-2"
+                    style={{
+                      backgroundColor: 'transparent',
+                      color: currentPage === i ? '#FBFBFB' : '#C2B79C',
+                      borderBottomColor: currentPage === i ? '#FBFBFB' : 'rgba(194, 183, 156, 0.3)'
+                    }}
                       onMouseEnter={(e) => {
                         if (currentPage !== i) {
                           e.currentTarget.style.backgroundColor = 'rgba(194, 183, 156, 0.1)';
@@ -1401,25 +1199,25 @@ const CardCollection: React.FC = () => {
                 if (endPage < totalPages) {
                   if (endPage < totalPages - 1) {
                     pages.push(
-                      <span key="end-ellipsis" className="px-1 md:px-2 py-2 text-gray-400 text-sm md:text-base">
-                        ...
-                      </span>
+                                          <span key="end-ellipsis" className="px-1 md:px-2 py-2 text-sm md:text-base text-gray-400">
+                      ...
+                    </span>
                     );
                   }
                   
                   pages.push(
-                    <button
-                      key={totalPages}
-                      onClick={() => {
-                        setCurrentPage(totalPages);
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                      }}
-                      className="px-2 md:px-4 py-2 transition-colors border-b-2 text-sm md:text-base"
-                      style={{
-                        backgroundColor: 'transparent',
-                        color: currentPage === totalPages ? '#FBFBFB' : '#C2B79C',
-                        borderBottomColor: currentPage === totalPages ? '#FBFBFB' : 'rgba(194, 183, 156, 0.3)'
-                      }}
+                                      <button
+                    key={totalPages}
+                    onClick={() => {
+                      setCurrentPage(totalPages);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    className="px-2 md:px-4 py-2 text-sm md:text-base transition-colors border-b-2"
+                    style={{
+                      backgroundColor: 'transparent',
+                      color: currentPage === totalPages ? '#FBFBFB' : '#C2B79C',
+                      borderBottomColor: currentPage === totalPages ? '#FBFBFB' : 'rgba(194, 183, 156, 0.3)'
+                    }}
                       onMouseEnter={(e) => {
                         if (currentPage !== totalPages) {
                           e.currentTarget.style.backgroundColor = 'rgba(194, 183, 156, 0.1)';
@@ -1448,7 +1246,7 @@ const CardCollection: React.FC = () => {
                   window.scrollTo({ top: 0, behavior: 'smooth' });
                 }}
                 disabled={currentPage === totalPages}
-                className="px-4 py-2 transition-colors border-b-2"
+                className="px-2 md:px-4 py-2 text-sm md:text-base transition-colors border-b-2"
                 style={{
                   backgroundColor: 'transparent',
                   color: currentPage === totalPages ? '#6B7280' : '#C2B79C',
@@ -1473,9 +1271,9 @@ const CardCollection: React.FC = () => {
               
               </div>
               
-              {/* 跳转到指定页面 - 移动端独占一行 */}
+              {/* 跳转到指定页面 */}
               <div className="flex items-center justify-center space-x-2">
-                <span className="text-gray-400 text-sm">跳转到</span>
+                <span className="text-gray-400 text-xs md:text-sm">跳转到</span>
                 <input
                   type="text"
                   value={jumpToPage}
@@ -1494,7 +1292,7 @@ const CardCollection: React.FC = () => {
                       }
                     }
                   }}
-                  className="w-12 md:w-16 px-1 md:px-2 py-1 text-center bg-transparent border focus:outline-none text-sm md:text-base"
+                  className="w-12 md:w-16 px-1 md:px-2 py-1 text-sm md:text-base text-center bg-transparent border focus:outline-none"
                   style={{
                     // 移除数字输入框的上下箭头
                     WebkitAppearance: 'none',
@@ -1514,7 +1312,7 @@ const CardCollection: React.FC = () => {
                   }}
                   placeholder={currentPage.toString()}
                 />
-                <span className="text-gray-400 text-sm">页</span>
+                <span className="text-gray-400 text-xs md:text-sm">页</span>
                 <button
                   onClick={() => {
                     const pageNum = parseInt(jumpToPage);
@@ -1546,6 +1344,7 @@ const CardCollection: React.FC = () => {
         <CardDetailModal 
           card={selectedCard} 
           onClose={closeCardDetail}
+          setTooltip={setTooltip}
         />
       )}
 
@@ -1897,7 +1696,7 @@ const CardComponent: React.FC<{
   card: Card; 
   onClick: () => void;
   customFactions: Array<{ id: string; name: string; description?: string }>;
-  setTooltip: (tooltip: { isVisible: boolean; content: string; position: { x: number; y: number } }) => void;
+  setTooltip?: (tooltip: TooltipState) => void;
 }> = ({ card, onClick, customFactions, setTooltip }) => {
   const cardBackground = getCardBackground(card.type);
   
@@ -2065,8 +1864,23 @@ const CardComponent: React.FC<{
                 displayName = displayName.replace(/【特殊机制】/g, '');
                 // 去掉【衍生牌】部分
                 displayName = displayName.replace(/【衍生牌】/g, '');
-                // 把点替换成·
-                return displayName.replace(/\./g, '·');
+                // 符号替换为阴角符号
+                return displayName
+                  .replace(/\./g, '·')  // 点号替换为·
+                  .replace(/\(/g, '「')  // 左括号替换为「
+                  .replace(/\)/g, '」')  // 右括号替换为」
+                  .replace(/\[/g, '【')  // 左方括号替换为【
+                  .replace(/\]/g, '】')  // 右方括号替换为】
+                  .replace(/\{/g, '〖')  // 左大括号替换为〖
+                  .replace(/\}/g, '〗')  // 右大括号替换为〗
+                  .replace(/</g, '〈')   // 小于号替换为〈
+                  .replace(/>/g, '〉')   // 大于号替换为〉
+                  .replace(/"/g, '『')   // 双引号替换为『
+                  .replace(/'/g, '『')   // 单引号替换为『
+                  .replace(/:/g, '：')   // 冒号替换为：
+                  .replace(/;/g, '；')   // 分号替换为；
+                  .replace(/!/g, '！')   // 感叹号替换为！
+                  .replace(/\?/g, '？'); // 问号替换为？
               })()}
             </h3>
             {/* 提取[]内容作为副标题 - 现在在主标题下面 */}
@@ -2219,11 +2033,51 @@ const CardComponent: React.FC<{
 };
 
 // 卡牌详情弹窗组件
-const CardDetailModal: React.FC<{ card: Card; onClose: () => void }> = ({ card, onClose }) => {
+const CardDetailModal: React.FC<{ 
+  card: Card; 
+  onClose: () => void;
+  setTooltip: (tooltip: TooltipState) => void;
+}> = ({ card, onClose, setTooltip }) => {
   const cardBackground = getCardBackground(card.type);
+  const [detailTooltip, setDetailTooltip] = useState<TooltipState>({
+    isVisible: false,
+    content: '',
+    position: { x: 0, y: 0 }
+  });
   
   return (
     <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
+      {/* 详情弹窗专用提示框 */}
+      {detailTooltip.isVisible && (
+        <div 
+          className="fixed z-[9999] px-3 py-2 text-sm rounded-lg shadow-lg border pointer-events-none"
+          style={{
+            backgroundColor: '#2A2A2A',
+            color: '#FBFBFB',
+            borderColor: '#4F6A8D',
+            left: detailTooltip.position.x,
+            top: detailTooltip.position.y,
+            maxWidth: '300px',
+            whiteSpace: 'pre-wrap',
+            transform: 'translateX(-50%)'
+          }}
+        >
+          {detailTooltip.content}
+          <div 
+            className="absolute w-2 h-2 transform rotate-45"
+            style={{
+              backgroundColor: '#2A2A2A',
+              borderColor: '#4F6A8D',
+              borderLeft: '1px solid',
+              borderBottom: '1px solid',
+              left: '50%',
+              top: '100%',
+              marginLeft: '-4px',
+              marginTop: '-1px'
+            }}
+          />
+        </div>
+      )}
       <div className="relative flex flex-col items-center">
         {/* 卡片容器 - 和预览卡片相同的结构，放大1.7倍 */}
         <div
@@ -2396,8 +2250,23 @@ const CardDetailModal: React.FC<{ card: Card; onClose: () => void }> = ({ card, 
                   displayName = displayName.replace(/【特殊机制】/g, '');
                   // 去掉【衍生牌】部分
                   displayName = displayName.replace(/【衍生牌】/g, '');
-                  // 把点替换成·
-                  return displayName.replace(/\./g, '·');
+                  // 符号替换为阴角符号
+                  return displayName
+                    .replace(/\./g, '·')  // 点号替换为·
+                    .replace(/\(/g, '「')  // 左括号替换为「
+                    .replace(/\)/g, '」')  // 右括号替换为」
+                    .replace(/\[/g, '【')  // 左方括号替换为【
+                    .replace(/\]/g, '】')  // 右方括号替换为】
+                    .replace(/\{/g, '〖')  // 左大括号替换为〖
+                    .replace(/\}/g, '〗')  // 右大括号替换为〗
+                    .replace(/</g, '〈')   // 小于号替换为〈
+                    .replace(/>/g, '〉')   // 大于号替换为〉
+                    .replace(/"/g, '『')   // 双引号替换为『
+                    .replace(/'/g, '『')   // 单引号替换为『
+                    .replace(/:/g, '：')   // 冒号替换为：
+                    .replace(/;/g, '；')   // 分号替换为；
+                    .replace(/!/g, '！')   // 感叹号替换为！
+                    .replace(/\?/g, '？'); // 问号替换为？
                 })()}
               </h3>
               {/* 提取[]内容作为副标题 - 现在在主标题下面 */}
@@ -2532,11 +2401,11 @@ const CardDetailModal: React.FC<{ card: Card; onClose: () => void }> = ({ card, 
                     <div>
                       {card.effect.split('*').map((part, index) => {
                         if (index === 0) {
-                          return <span key={index}>{formatEffectText(part)}</span>;
+                          return <span key={index}>{formatEffectText(part, setDetailTooltip)}</span>;
                         } else {
                           return (
                             <div key={index}>
-                              <span style={{ fontStyle: 'italic' }}>*{formatEffectText(part)}</span>
+                              <span style={{ fontStyle: 'italic' }}>*{formatEffectText(part, setDetailTooltip)}</span>
                             </div>
                           );
                         }
