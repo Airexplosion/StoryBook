@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import ReactDOM from 'react-dom';
 import { GameState, Card, ModifiedCard } from '../../types';
 import { useColor } from '../../contexts/ColorContext';
 import { getDynamicClassName } from '../../utils/colorUtils';
@@ -52,6 +53,47 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, currentUserId, onGameA
   const [showInsufficientManaModal, setShowInsufficientManaModal] = useState(false); // 新增：费用不足模态框
   const [insufficientManaInfo, setInsufficientManaInfo] = useState<{ required: number; current: number; cardName: string } | null>(null); // 费用不足信息
   
+  // 展示手牌确认模态框相关状态
+  const [showDisplayHandConfirmModal, setShowDisplayHandConfirmModal] = useState(false);
+  const [displayHandConfirmData, setDisplayHandConfirmData] = useState<{
+    type: 'all' | 'selected';
+    cards: Card[];
+    count: number;
+  } | null>(null);
+  
+  // 右键菜单相关状态
+  const [showContextMenu, setShowContextMenu] = useState(false);
+  const [contextMenuPosition, setContextMenuPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [contextMenuZone, setContextMenuZone] = useState<'battlefield' | 'effect' | null>(null);
+  const [contextMenuPosition_slot, setContextMenuPosition_slot] = useState<number | null>(null);
+  
+  // 卡牌右键菜单相关状态
+  const [showCardContextMenu, setShowCardContextMenu] = useState(false);
+  const [cardContextMenuPosition, setCardContextMenuPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [cardContextMenuData, setCardContextMenuData] = useState<{
+    card: Card | ModifiedCard;
+    index: number;
+    zone: 'hand' | 'battlefield' | 'effect';
+  } | null>(null);
+  
+  // 战斗相关状态
+  const [showBattleModal, setShowBattleModal] = useState(false);
+  const [battleData, setBattleData] = useState<{
+    attacker: { card: ModifiedCard; index: number; zone: 'battlefield' | 'effect' };
+    defender: { card: ModifiedCard; index: number; zone: 'battlefield' | 'effect' };
+    attackerDamage: number;
+    defenderDamage: number;
+    attackerWillDie: boolean;
+    defenderWillDie: boolean;
+  } | null>(null);
+  
+  // 攻击玩家相关状态
+  const [showAttackPlayerModal, setShowAttackPlayerModal] = useState(false);
+  const [attackPlayerData, setAttackPlayerData] = useState<{
+    attacker: { card: ModifiedCard; index: number; zone: 'battlefield' | 'effect' };
+    damage: number;
+  } | null>(null);
+  
   // 拖拽相关状态
   const [draggedCard, setDraggedCard] = useState<{
     card: Card | ModifiedCard;
@@ -69,9 +111,10 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, currentUserId, onGameA
     sourceZone: 'hand' | 'battlefield' | 'effect';
   } | null>(null);
   
-  // 长按复制功能状态
-  const [longPressTimers, setLongPressTimers] = useState<Map<string, NodeJS.Timeout>>(new Map());
-  const [longPressingCards, setLongPressingCards] = useState<Set<string>>(new Set());
+  // 拖拽动画相关状态
+  const [dragPosition, setDragPosition] = useState<{ x: number; y: number } | null>(null);
+  const [dragStartPosition, setDragStartPosition] = useState<{ x: number; y: number } | null>(null);
+  
   
   // 直接使用服务器的空位数量，确保同步
   const currentBattlefieldSlots = currentPlayer?.battlefieldSlots ?? 5;
@@ -326,9 +369,18 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, currentUserId, onGameA
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', ''); // 为了兼容性
     
+    // 记录拖拽开始位置
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setDragStartPosition({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
+    
     // 设置拖拽时的鼠标样式为抓取
     const dragElement = e.currentTarget as HTMLElement;
     dragElement.style.cursor = 'grabbing';
+    
+    // 创建自定义拖拽图像（透明的，这样我们可以用自己的动画）
+    const dragImage = new Image();
+    dragImage.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAUEBAAAACwAAAAAAQABAAACAkQBADs=';
+    e.dataTransfer.setDragImage(dragImage, 0, 0);
   };
 
   const handleDragOver = (e: React.DragEvent, zone: 'battlefield' | 'effect', position: number) => {
@@ -420,6 +472,115 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, currentUserId, onGameA
     setDraggedCard(null);
   };
 
+  // 处理拖拽到对方卡牌上的战斗
+  const handleDropOnOpponentCard = (e: React.DragEvent, targetCard: ModifiedCard, targetIndex: number, targetZone: 'battlefield' | 'effect') => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!draggedCard || isSpectator) return;
+
+    const { card: attackerCard, sourceIndex, sourceZone } = draggedCard;
+    
+    // 只有配角牌可以攻击
+    if (attackerCard.type !== '配角牌') {
+      alert('只有配角牌可以进行攻击！');
+      setDraggedCard(null);
+      return;
+    }
+
+    // 只有对方的配角牌可以被攻击
+    if (targetCard.type !== '配角牌') {
+      alert('只能攻击对方的配角牌！');
+      setDraggedCard(null);
+      return;
+    }
+
+    // 计算战斗伤害
+    const attackerAttack = (attackerCard as ModifiedCard).modifiedAttack !== undefined ? 
+                          (attackerCard as ModifiedCard).modifiedAttack : (attackerCard.attack || 0);
+    const attackerHealth = (attackerCard as ModifiedCard).modifiedHealth !== undefined ? 
+                          (attackerCard as ModifiedCard).modifiedHealth : (attackerCard.health || 0);
+    const defenderAttack = targetCard.modifiedAttack !== undefined ? 
+                          targetCard.modifiedAttack : (targetCard.attack || 0);
+    const defenderHealth = targetCard.modifiedHealth !== undefined ? 
+                          targetCard.modifiedHealth : (targetCard.health || 0);
+
+    const attackerDamage = Math.max(0, defenderAttack || 0); // 攻击者受到的伤害
+    const defenderDamage = Math.max(0, attackerAttack || 0); // 防御者受到的伤害
+
+    const attackerWillDie = (attackerHealth || 0) <= attackerDamage;
+    const defenderWillDie = (defenderHealth || 0) <= defenderDamage;
+
+    setBattleData({
+      attacker: { card: attackerCard as ModifiedCard, index: sourceIndex, zone: sourceZone as 'battlefield' | 'effect' },
+      defender: { card: targetCard, index: targetIndex, zone: targetZone },
+      attackerDamage,
+      defenderDamage,
+      attackerWillDie,
+      defenderWillDie
+    });
+    setShowBattleModal(true);
+    setDraggedCard(null);
+  };
+
+  // 处理拖拽到对方玩家信息上的攻击
+  const handleDropOnOpponentPlayer = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!draggedCard || isSpectator) return;
+
+    const { card: attackerCard, sourceIndex, sourceZone } = draggedCard;
+    
+    // 只有配角牌可以攻击玩家
+    if (attackerCard.type !== '配角牌') {
+      alert('只有配角牌可以攻击玩家！');
+      setDraggedCard(null);
+      return;
+    }
+
+    // 计算攻击伤害
+    const attackerAttack = (attackerCard as ModifiedCard).modifiedAttack !== undefined ? 
+                          (attackerCard as ModifiedCard).modifiedAttack : (attackerCard.attack || 0);
+
+    setAttackPlayerData({
+      attacker: { card: attackerCard as ModifiedCard, index: sourceIndex, zone: sourceZone as 'battlefield' | 'effect' },
+      damage: attackerAttack || 0
+    });
+    setShowAttackPlayerModal(true);
+    setDraggedCard(null);
+  };
+
+  // 确认战斗结果
+  const handleConfirmBattle = () => {
+    if (!battleData) return;
+
+    onGameAction('card-battle', {
+      attacker: battleData.attacker,
+      defender: battleData.defender,
+      attackerDamage: battleData.attackerDamage,
+      defenderDamage: battleData.defenderDamage,
+      attackerWillDie: battleData.attackerWillDie,
+      defenderWillDie: battleData.defenderWillDie
+    });
+
+    setShowBattleModal(false);
+    setBattleData(null);
+  };
+
+  // 确认攻击玩家
+  const handleConfirmAttackPlayer = () => {
+    if (!attackPlayerData) return;
+
+    onGameAction('attack-player', {
+      attacker: attackPlayerData.attacker,
+      damage: attackPlayerData.damage
+    });
+
+    setShowAttackPlayerModal(false);
+    setAttackPlayerData(null);
+  };
+
   const handleDragEnd = (e: React.DragEvent) => {
     // 检查是否拖拽到牌桌区域外
     if (draggedCard) {
@@ -443,8 +604,132 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, currentUserId, onGameA
       }
     }
     
+    // 清理拖拽状态和动画
     setDraggedCard(null);
     setDragOverZone(null);
+    setDragPosition(null);
+    setDragStartPosition(null);
+    
+    // 移除全局鼠标移动监听器
+    document.removeEventListener('dragover', handleGlobalDragOver);
+  };
+
+  // 全局拖拽移动处理
+  const handleGlobalDragOver = (e: DragEvent) => {
+    if (draggedCard && dragStartPosition) {
+      setDragPosition({ x: e.clientX, y: e.clientY });
+    }
+  };
+
+  // 添加和移除全局拖拽监听器
+  React.useEffect(() => {
+    if (draggedCard) {
+      document.addEventListener('dragover', handleGlobalDragOver);
+      return () => {
+        document.removeEventListener('dragover', handleGlobalDragOver);
+      };
+    }
+  }, [draggedCard, dragStartPosition]);
+
+  // 处理右键菜单
+  const handleContextMenu = (e: React.MouseEvent, zone: 'battlefield' | 'effect', position?: number) => {
+    if (isSpectator) return; // 观战模式下不显示右键菜单
+    
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // 先关闭所有其他菜单
+    closeCardContextMenu();
+    
+    // 检查是否点击的是空位置
+    const targetArea = zone === 'battlefield' ? currentPlayer?.battlefield : currentPlayer?.effectZone;
+    const isEmptySlot = position !== undefined && (!targetArea || !targetArea[position]);
+    
+    if (isEmptySlot) {
+      setContextMenuPosition({ x: e.clientX, y: e.clientY });
+      setContextMenuZone(zone);
+      setContextMenuPosition_slot(position);
+      setShowContextMenu(true);
+    }
+  };
+
+  // 关闭右键菜单
+  const closeContextMenu = () => {
+    setShowContextMenu(false);
+    setContextMenuZone(null);
+    setContextMenuPosition_slot(null);
+  };
+
+  // 处理右键菜单中的添加卡牌
+  const handleContextMenuAddCard = () => {
+    setShowAdvancedAddCardModal(true);
+    closeContextMenu();
+  };
+
+  // 处理卡牌右键菜单
+  const handleCardContextMenu = (e: React.MouseEvent, card: Card | ModifiedCard, index: number, zone: 'hand' | 'battlefield' | 'effect') => {
+    if (isSpectator) return; // 观战模式下不显示右键菜单
+    
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // 先关闭所有其他菜单
+    closeContextMenu();
+    
+    setCardContextMenuPosition({ x: e.clientX, y: e.clientY });
+    setCardContextMenuData({ card, index, zone });
+    setShowCardContextMenu(true);
+  };
+
+  // 关闭卡牌右键菜单
+  const closeCardContextMenu = () => {
+    setShowCardContextMenu(false);
+    setCardContextMenuData(null);
+  };
+
+  // 点击其他地方关闭右键菜单
+  React.useEffect(() => {
+    const handleClickOutside = () => {
+      if (showContextMenu) {
+        closeContextMenu();
+      }
+      if (showCardContextMenu) {
+        closeCardContextMenu();
+      }
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    document.addEventListener('contextmenu', handleClickOutside);
+    
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+      document.removeEventListener('contextmenu', handleClickOutside);
+    };
+  }, [showContextMenu, showCardContextMenu]);
+
+  // 处理卡牌右键菜单中的复制
+  const handleCardContextMenuCopy = () => {
+    if (!cardContextMenuData) return;
+    
+    const { index, zone } = cardContextMenuData;
+    
+    if (zone === 'hand') {
+      onGameAction('copy-hand-card', { handIndex: index });
+    } else if (zone === 'battlefield') {
+      onGameAction('copy-battlefield-card', { cardIndex: index });
+    } else if (zone === 'effect') {
+      onGameAction('copy-effect-card', { cardIndex: index });
+    }
+    
+    closeCardContextMenu();
+  };
+
+  // 处理卡牌右键菜单中的多选（仅手牌）
+  const handleCardContextMenuMultiSelect = () => {
+    if (!cardContextMenuData) return;
+    
+    setShowMultiSelectModal(true);
+    closeCardContextMenu();
   };
 
   // 处理删除卡牌确认
@@ -527,94 +812,21 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, currentUserId, onGameA
     // 如果卡牌被展示，添加高亮效果
     const displayHighlight = isDisplayed ? 'ring-2 ring-yellow-400 ring-opacity-75 shadow-lg shadow-yellow-400/50' : '';
 
-    // 长按复制功能
-    const cardKey = `${card._id || index}_${zone || (isHandCard ? 'hand' : 'battlefield')}`;
-    const isCurrentlyLongPressing = longPressingCards.has(cardKey);
-
-    const handleMouseDown = (e: React.MouseEvent) => {
-      if (isSpectator || isOpponentCard) return; // 观战模式或对手卡牌不允许复制
-      
-      // 只处理左键
-      if (e.button !== 0) return;
-      
-      // 清除该卡牌的长按状态
-      setLongPressingCards(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(cardKey);
-        return newSet;
-      });
-      
-      const timer = setTimeout(() => {
-        // 设置长按状态
-        setLongPressingCards(prev => new Set(prev).add(cardKey));
-        
-        // 执行复制操作
-        if (isHandCard) {
-          onGameAction('copy-hand-card', { handIndex: index });
-        } else if (zone === 'battlefield') {
-          onGameAction('copy-battlefield-card', { cardIndex: index });
-        } else if (zone === 'effect') {
-          onGameAction('copy-effect-card', { cardIndex: index });
-        }
-      }, 800); // 800ms 长按时间
-      
-      // 保存定时器
-      setLongPressTimers(prev => {
-        const newMap = new Map(prev);
-        // 清除之前的定时器
-        const oldTimer = newMap.get(cardKey);
-        if (oldTimer) {
-          clearTimeout(oldTimer);
-        }
-        newMap.set(cardKey, timer);
-        return newMap;
-      });
-    };
-
-    const handleMouseUp = (e: React.MouseEvent) => {
-      // 清除定时器
-      const timer = longPressTimers.get(cardKey);
-      if (timer) {
-        clearTimeout(timer);
-        setLongPressTimers(prev => {
-          const newMap = new Map(prev);
-          newMap.delete(cardKey);
-          return newMap;
-        });
+    // 根据区域和是否为对手卡牌决定尺寸
+    let cardSizeClass = '';
+    if (isHandCard) {
+      cardSizeClass = 'w-20 h-28';
+    } else if (isOpponentCard) {
+      // 对手区域的卡牌使用与空位置相同的尺寸
+      if (zone === 'battlefield') {
+        cardSizeClass = 'w-full min-h-32';
+      } else if (zone === 'effect') {
+        cardSizeClass = 'w-full min-h-20';
       }
-      
-      // 如果不是长按，执行正常的点击操作
-      if (!isCurrentlyLongPressing) {
-        handleLeftClick(e);
-      }
-      
-      // 清除长按状态
-      setLongPressingCards(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(cardKey);
-        return newSet;
-      });
-    };
-
-    const handleMouseLeave = () => {
-      // 清除定时器
-      const timer = longPressTimers.get(cardKey);
-      if (timer) {
-        clearTimeout(timer);
-        setLongPressTimers(prev => {
-          const newMap = new Map(prev);
-          newMap.delete(cardKey);
-          return newMap;
-        });
-      }
-      
-      // 清除长按状态
-      setLongPressingCards(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(cardKey);
-        return newSet;
-      });
-    };
+    } else {
+      // 自己区域的卡牌保持原有尺寸
+      cardSizeClass = '';
+    }
 
     // 处理左键点击查看详情
     const handleLeftClick = (e: React.MouseEvent) => {
@@ -625,7 +837,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, currentUserId, onGameA
       openCardDetailModal(card, index, zone || (isHandCard ? 'hand' : 'battlefield'));
     };
 
-    // 处理右键点击复制卡牌
+    // 处理右键点击显示菜单
     const handleRightClick = (e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
@@ -635,33 +847,10 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, currentUserId, onGameA
         return;
       }
       
-      // 清除任何长按状态，避免冲突
-      const timer = longPressTimers.get(cardKey);
-      if (timer) {
-        clearTimeout(timer);
-        setLongPressTimers(prev => {
-          const newMap = new Map(prev);
-          newMap.delete(cardKey);
-          return newMap;
-        });
+      // 显示卡牌右键菜单
+      if (index !== undefined) {
+        handleCardContextMenu(e, card, index, zone || (isHandCard ? 'hand' : 'battlefield'));
       }
-      setLongPressingCards(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(cardKey);
-        return newSet;
-      });
-      
-      // 执行复制操作
-      if (isHandCard) {
-        onGameAction('copy-hand-card', { handIndex: index });
-      } else if (zone === 'battlefield') {
-        onGameAction('copy-battlefield-card', { cardIndex: index });
-      } else if (zone === 'effect') {
-        onGameAction('copy-effect-card', { cardIndex: index });
-      }
-      
-      // 显示复制成功提示
-      console.log(`右键复制卡牌: ${card.name}`);
       
       // 确保阻止默认右键菜单
       return false;
@@ -670,14 +859,11 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, currentUserId, onGameA
     return (
       <div 
         key={card._id || index} 
-        className={`group relative rounded-lg p-2 text-white text-xs shadow-md border ${cardColorClass} ${hasModification ? 'ring-1 ring-yellow-300' : ''} ${displayHighlight} ${isHandCard ? 'w-20 h-28' : ''} ${!isSpectator && !isOpponentCard ? 'cursor-grab' : 'cursor-pointer'} ${isBeingDragged ? 'opacity-30' : ''}`}
+        className={`group relative rounded-lg p-2 text-white text-xs shadow-md border ${cardColorClass} ${hasModification ? 'ring-1 ring-yellow-300' : ''} ${displayHighlight} ${cardSizeClass} ${!isSpectator && !isOpponentCard ? 'cursor-pointer hover:cursor-grab active:cursor-grabbing' : 'cursor-pointer'} ${isBeingDragged ? 'opacity-30' : ''} ${isOpponentCard ? 'flex flex-col justify-between' : ''}`}
         style={cardColorClass === '' ? { ...cardBgStyle, ...cardBorderStyle } : {}}
         draggable={!isSpectator && !isOpponentCard}
         onDragStart={(e) => !isSpectator && !isOpponentCard && index !== undefined && handleDragStart(e, card, index, zone || (isHandCard ? 'hand' : 'battlefield'))}
         onDragEnd={handleDragEnd}
-        onMouseDown={handleMouseDown}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseLeave}
         onClick={handleLeftClick}
         onContextMenu={handleRightClick}
       >
@@ -708,30 +894,14 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, currentUserId, onGameA
         {/* 观战模式下场上卡牌只显示查看按钮 */}
         {!isHandCard && !isOpponentCard && isSpectator && (
           <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-            <button
-              onClick={(e) => { 
-                e.stopPropagation(); 
-                openCardDetailModal(card);
-              }}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-xs"
-            >
-              查看
-            </button>
+
           </div>
         )}
 
         {/* 对手牌桌区域的查看按钮 */}
         {!isHandCard && isOpponentCard && (
           <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-            <button
-              onClick={(e) => { 
-                e.stopPropagation(); 
-                openCardDetailModal(card);
-              }}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-xs"
-            >
-              查看
-            </button>
+
           </div>
         )}
       </div>
@@ -739,15 +909,67 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, currentUserId, onGameA
   };
 
   return (
-    <div className="space-y-4">
+    <>
+      {/* 拖拽中的卡牌动画 - 使用 Portal 渲染到 body */}
+      {draggedCard && dragPosition && dragStartPosition && ReactDOM.createPortal(
+        <div 
+          className="fixed pointer-events-none z-[10001]"
+          style={{
+            left: dragPosition.x - 40, // 卡牌宽度的一半
+            top: dragPosition.y - 56,  // 卡牌高度的一半
+            transform: `rotate(${Math.sin((dragPosition.x - dragStartPosition.x) * 0.01) * 5}deg) scale(1.1)`,
+            transition: 'transform 0.1s ease-out',
+          }}
+        >
+          <div className="w-20 h-28 bg-gradient-to-b from-blue-600 to-blue-800 border-2 border-blue-400 rounded-lg p-2 text-white text-xs shadow-2xl animate-pulse">
+            <div className="font-semibold text-center mb-1 truncate">{draggedCard.card.name}</div>
+            <div className="text-center text-xs mb-1">费用: {draggedCard.card.cost}</div>
+            {draggedCard.card.type === '配角牌' && (
+              <div className="text-center text-xs">
+                攻: {draggedCard.card.attack} / 生命: {draggedCard.card.health}
+              </div>
+            )}
+            <div className="text-xs text-center mt-1 truncate">{draggedCard.card.effect || '无效果'}</div>
+            
+            {/* 拖拽轨迹效果 */}
+            <div className="absolute inset-0 bg-blue-400 opacity-20 rounded-lg animate-ping"></div>
+          </div>
+          
+          {/* 拖拽方向指示器 */}
+          <div 
+            className="absolute -bottom-2 -right-2 w-4 h-4 bg-yellow-400 rounded-full animate-bounce"
+            style={{
+              transform: `translate(${(dragPosition.x - dragStartPosition.x) * 0.1}px, ${(dragPosition.y - dragStartPosition.y) * 0.1}px)`,
+            }}
+          ></div>
+        </div>,
+        document.body
+      )}
+      
+      <div className="space-y-4">
       {/* 对手区域 */}
       <div className={`${opponentColorClasses.bgOpacity} border ${opponentColorClasses.border} backdrop-blur-md rounded-xl p-4 mb-4`}
-           style={opponentColorClasses.customStyle && typeof opponentColorClasses.customStyle === 'object' ? { backgroundColor: opponentColorClasses.customStyle.backgroundColor, borderColor: opponentColorClasses.customStyle.borderColor } : {}}>
+           style={opponentColorClasses.customStyle && typeof opponentColorClasses.customStyle === 'object' ? { backgroundColor: opponentColorClasses.customStyle.backgroundColor, borderColor: opponentColorClasses.customStyle.borderColor } : {}}
+           onDragOver={(e) => {
+             if (draggedCard && draggedCard.card.type === '配角牌') {
+               e.preventDefault();
+               e.dataTransfer.dropEffect = 'move';
+             }
+           }}
+           onDrop={handleDropOnOpponentPlayer}>
         <div className="flex items-center justify-between mb-3">
-          <h3 className={`${opponentColorClasses.text} font-semibold text-lg`}
-              style={opponentColorClasses.customStyle && typeof opponentColorClasses.customStyle === 'object' ? { color: opponentColorClasses.customStyle.color } : {}}>
-            🔴 {opponent?.username || '对手'} 的牌桌区域
-          </h3>
+          <div className="flex items-center space-x-3">
+            {/* 对手头像 */}
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center shadow-lg border-2 border-red-400">
+              <span className="text-white font-bold text-lg">
+                {(opponent?.username || '对手').charAt(0).toUpperCase()}
+              </span>
+            </div>
+            <h3 className={`${opponentColorClasses.text} font-semibold text-lg`}
+                style={opponentColorClasses.customStyle && typeof opponentColorClasses.customStyle === 'object' ? { color: opponentColorClasses.customStyle.color } : {}}>
+              {opponent?.username || '对手'} 的牌桌区域
+            </h3>
+          </div>
           <div className="text-sm"
                style={opponentColorClasses.customStyle && typeof opponentColorClasses.customStyle === 'object' ? { color: opponentColorClasses.customStyle.color } : {}}>
             牌桌: {opponent?.battlefield?.filter((card: any) => card !== null).length || 0}/{opponentBattlefieldSlots} | 效果区: {opponent?.effectZone?.filter((card: any) => card !== null).length || 0}/{opponentEffectSlots}
@@ -822,14 +1044,23 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, currentUserId, onGameA
              style={opponentColorClasses.customStyle && typeof opponentColorClasses.customStyle === 'object' ? { backgroundColor: opponentColorClasses.customStyle.backgroundColor } : {}}>
           <div className={`${opponentColorClasses.text} text-sm mb-2 text-center`}
                style={opponentColorClasses.customStyle && typeof opponentColorClasses.customStyle === 'object' ? { color: opponentColorClasses.customStyle.color } : {}}>对手持续效果区域</div>
-          <div className="grid grid-cols-6 gap-2 min-h-20" style={{ gridTemplateColumns: `repeat(${opponentEffectSlots}, minmax(0, 1fr))` }}>
+          <div className="grid gap-2 min-h-20" style={{ gridTemplateColumns: `repeat(${opponentEffectSlots}, minmax(0, 1fr))` }}>
             {Array.from({ length: opponentEffectSlots }).map((_, index) => {
               const card = opponent?.effectZone?.[index];
               if (card && card !== null) {
-                return renderCard(card, false, index, true, 'effect');
+                return (
+                  <div
+                    key={`opponent-effect-${index}`}
+                    className="min-h-20 flex items-stretch"
+                  >
+                    <div className="w-full">
+                      {renderCard(card, false, index, true, 'effect')}
+                    </div>
+                  </div>
+                );
               } else {
                 return (
-                  <div key={`empty-opponent-effect-${index}`} className={`${opponentColorClasses.bgOpacityHigh} border ${opponentColorClasses.borderDashed} rounded-lg min-h-16 flex items-center justify-center`}
+                  <div key={`empty-opponent-effect-${index}`} className={`${opponentColorClasses.bgOpacityHigh} border ${opponentColorClasses.borderDashed} rounded-lg min-h-20 flex items-center justify-center`}
                        style={opponentColorClasses.customStyle && typeof opponentColorClasses.customStyle === 'object' ? { backgroundColor: opponentColorClasses.customStyle.backgroundColor, borderColor: opponentColorClasses.customStyle.borderColor } : {}}>
                     <span className={`${opponentColorClasses.textTertiary} text-xs`}
                           style={opponentColorClasses.customStyle && typeof opponentColorClasses.customStyle === 'object' ? { color: opponentColorClasses.customStyle.color } : {}}>位置 {index + 1}</span>
@@ -845,14 +1076,30 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, currentUserId, onGameA
              style={opponentColorClasses.customStyle && typeof opponentColorClasses.customStyle === 'object' ? { backgroundColor: opponentColorClasses.customStyle.backgroundColor } : {}}>
           <div className={`${opponentColorClasses.text} text-sm mb-2 text-center`}
                style={opponentColorClasses.customStyle && typeof opponentColorClasses.customStyle === 'object' ? { color: opponentColorClasses.customStyle.color } : {}}>对手牌桌区域</div>
-          <div className="grid grid-cols-5 gap-2 min-h-32" style={{ gridTemplateColumns: `repeat(${opponentBattlefieldSlots}, minmax(0, 1fr))` }}>
+          <div className="grid gap-2 min-h-32" style={{ gridTemplateColumns: `repeat(${opponentBattlefieldSlots}, minmax(0, 1fr))` }}>
             {Array.from({ length: opponentBattlefieldSlots }).map((_, index) => {
               const card = opponent?.battlefield?.[index];
               if (card && card !== null) {
-                return renderCard(card, false, index, true, 'battlefield');
+                return (
+                  <div
+                    key={`opponent-battlefield-${index}`}
+                    className="min-h-32 flex items-stretch"
+                    onDragOver={(e) => {
+                      if (draggedCard && draggedCard.card.type === '配角牌') {
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = 'move';
+                      }
+                    }}
+                    onDrop={(e) => handleDropOnOpponentCard(e, card, index, 'battlefield')}
+                  >
+                    <div className="w-full">
+                      {renderCard(card, false, index, true, 'battlefield')}
+                    </div>
+                  </div>
+                );
               } else {
                 return (
-                  <div key={`empty-opponent-battlefield-${index}`} className={`${opponentColorClasses.bgOpacityHigh} border ${opponentColorClasses.borderDashed} rounded-lg min-h-24 flex items-center justify-center`}
+                  <div key={`empty-opponent-battlefield-${index}`} className={`${opponentColorClasses.bgOpacityHigh} border ${opponentColorClasses.borderDashed} rounded-lg min-h-32 flex items-center justify-center`}
                        style={opponentColorClasses.customStyle && typeof opponentColorClasses.customStyle === 'object' ? { backgroundColor: opponentColorClasses.customStyle.backgroundColor, borderColor: opponentColorClasses.customStyle.borderColor } : {}}>
                     <span className={`${opponentColorClasses.textTertiary} text-xs`}
                           style={opponentColorClasses.customStyle && typeof opponentColorClasses.customStyle === 'object' ? { color: opponentColorClasses.customStyle.color } : {}}>位置 {index + 1}</span>
@@ -891,18 +1138,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, currentUserId, onGameA
                   +
                 </button>
               </div>
-              <button
-                onClick={handleShuffle}
-                className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded text-sm transition-colors"
-              >
-                洗牌
-              </button>
-              <button
-                onClick={() => setShowAdvancedAddCardModal(true)}
-                className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm transition-colors"
-              >
-                添加卡牌
-              </button>
+
             </div>
           )}
         </div>
@@ -914,19 +1150,20 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, currentUserId, onGameA
               return renderCard(card, false, index, false, 'battlefield');
             } else {
               const isDragOver = dragOverZone?.zone === 'battlefield' && dragOverZone?.position === index;
-              return (
-                <div 
-                  key={`empty-battlefield-${index}`} 
-                  className={`bg-white bg-opacity-5 border border-dashed border-gray-500 rounded-lg min-h-24 flex items-center justify-center transition-colors ${
-                    isDragOver ? 'bg-blue-500 bg-opacity-30 border-blue-400' : ''
-                  } ${!isSpectator ? 'hover:bg-white hover:bg-opacity-10' : ''}`}
-                  onDragOver={(e) => !isSpectator && handleDragOver(e, 'battlefield', index)}
-                  onDragLeave={handleDragLeave}
-                  onDrop={(e) => !isSpectator && handleDrop(e, 'battlefield', index)}
-                >
-                  <span className="text-gray-400 text-xs">位置 {index + 1}</span>
-                </div>
-              );
+                return (
+                  <div 
+                    key={`empty-battlefield-${index}`} 
+                    className={`bg-white bg-opacity-5 border border-dashed border-gray-500 rounded-lg min-h-24 flex items-center justify-center transition-colors ${
+                      isDragOver ? 'bg-blue-500 bg-opacity-30 border-blue-400' : ''
+                    } ${!isSpectator ? 'hover:bg-white hover:bg-opacity-10' : ''}`}
+                    onDragOver={(e) => !isSpectator && handleDragOver(e, 'battlefield', index)}
+                    onDragLeave={handleDragLeave}
+                    onDrop={(e) => !isSpectator && handleDrop(e, 'battlefield', index)}
+                    onContextMenu={(e) => handleContextMenu(e, 'battlefield', index)}
+                  >
+                    <span className="text-gray-400 text-xs">位置 {index + 1}</span>
+                  </div>
+                );
             }
           })}
         </div>
@@ -974,6 +1211,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, currentUserId, onGameA
                     onDragOver={(e) => !isSpectator && handleDragOver(e, 'effect', index)}
                     onDragLeave={handleDragLeave}
                     onDrop={(e) => !isSpectator && handleDrop(e, 'effect', index)}
+                    onContextMenu={(e) => handleContextMenu(e, 'effect', index)}
                   >
                     <span className="text-gray-400 text-xs">位置 {index + 1}</span>
                   </div>
@@ -991,16 +1229,6 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, currentUserId, onGameA
                 style={playerColorClasses.customStyle && typeof playerColorClasses.customStyle === 'object' ? { color: playerColorClasses.customStyle.color } : {}}>
               {isSpectator ? `${currentPlayer?.username || '玩家1'} 的手牌区域` : '手牌区域'}
             </h4>
-            {!isSpectator && (
-              <div className="flex space-x-2">
-                <button
-                  onClick={() => setShowMultiSelectModal(true)}
-                  className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded text-sm transition-colors"
-                >
-                  多选（展示手牌、弃牌、调整费用）
-                </button>
-              </div>
-            )}
           </div>
           
           {/* 手牌区域布局：左侧弃牌区 + 中间手牌 + 右侧牌堆区 */}
@@ -1100,6 +1328,11 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, currentUserId, onGameA
                     dragOverZone?.zone === 'deck-random' ? 'bg-purple-500 bg-opacity-30 border-purple-400' : 'bg-purple-600 bg-opacity-20 hover:bg-purple-500 hover:bg-opacity-30'
                   }`}
                   onClick={handleDrawCard}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleShuffle();
+                  }}
                   onDragOver={(e) => {
                     if (!isSpectator && draggedCard && (draggedCard.sourceZone === 'hand' || draggedCard.sourceZone === 'battlefield' || draggedCard.sourceZone === 'effect')) {
                       e.preventDefault();
@@ -1141,6 +1374,8 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, currentUserId, onGameA
                   <div className="text-purple-300 text-xs font-bold mb-1">牌堆</div>
                   <div className="text-purple-200 text-xs">({currentPlayer?.deckSize || 0})</div>
                   <div className="text-purple-200 text-xs mt-1">点击抽牌</div>
+                  <div className="text-purple-200 text-xs mt-1">右键洗牌</div>
+                  <div className="text-purple-200 text-xs mt-1">拖拽插入</div>
                 </div>
 
                 <div className="flex flex-col gap-2">
@@ -1731,10 +1966,15 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, currentUserId, onGameA
 
             <div className="grid grid-cols-4 gap-4 max-h-96 overflow-y-auto mb-4">
               {deckSearchResults
-                .filter(card => card.name.toLowerCase().includes(deckSearchKeyword.toLowerCase()))
-                .map((card, index) => (
+                .map((card, originalIndex) => ({
+                  card,
+                  originalIndex,
+                  matchesSearch: card.name.toLowerCase().includes(deckSearchKeyword.toLowerCase())
+                }))
+                .filter(item => item.matchesSearch)
+                .map(({ card, originalIndex }, displayIndex) => (
                   <div 
-                    key={index} 
+                    key={originalIndex} 
                     className="bg-blue-600 bg-opacity-70 border border-blue-400 rounded-lg p-3 text-white text-xs shadow-lg cursor-pointer hover:bg-blue-500 group relative"
                   >
                     <div className="font-semibold text-center mb-1">{card.name}</div>
@@ -1755,14 +1995,14 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, currentUserId, onGameA
                         查看详情
                       </button>
                       <button
-                        onClick={() => openCardNoteModal(card as ModifiedCard, index, 'deck')}
+                        onClick={() => openCardNoteModal(card as ModifiedCard, originalIndex, 'deck')}
                         className="bg-purple-600 hover:bg-purple-700 text-white px-1 py-1 rounded text-xs"
                         title="添加/编辑备注"
                       >
                         备注
                       </button>
                       <button
-                        onClick={() => handleDrawSpecificCard(card, index)}
+                        onClick={() => handleDrawSpecificCard(card, originalIndex)}
                         className="bg-green-600 hover:bg-green-700 text-white px-1 py-1 rounded text-xs"
                       >
                         抽取此牌
@@ -1980,12 +2220,12 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, currentUserId, onGameA
                       alert('手牌为空，无法展示。');
                       return;
                     }
-                    if (window.confirm(`确定要向对手展示全部手牌 (${currentPlayer.hand.length} 张) 吗？`)) {
-                      onGameAction('display-all-hand', { 
-                        cards: currentPlayer.hand,
-                        message: `展示了全部手牌 (${currentPlayer.hand.length} 张)`
-                      });
-                    }
+                    setDisplayHandConfirmData({
+                      type: 'all',
+                      cards: currentPlayer.hand,
+                      count: currentPlayer.hand.length
+                    });
+                    setShowDisplayHandConfirmModal(true);
                   }}
                   className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded text-sm transition-colors"
                 >
@@ -1999,12 +2239,12 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, currentUserId, onGameA
                       return;
                     }
                     const selectedCards = selectedHandCards.map(index => currentPlayer.hand[index]);
-                    if (window.confirm(`确定要向对手展示选中的 ${selectedHandCards.length} 张手牌吗？`)) {
-                      onGameAction('display-selected-hand', { 
-                        cards: selectedCards,
-                        message: `展示了 ${selectedHandCards.length} 张手牌`
-                      });
-                    }
+                    setDisplayHandConfirmData({
+                      type: 'selected',
+                      cards: selectedCards,
+                      count: selectedHandCards.length
+                    });
+                    setShowDisplayHandConfirmModal(true);
                   }}
                   disabled={selectedHandCards.length === 0}
                   className="bg-green-600 hover:bg-green-700 disabled:bg-gray-500 text-white py-2 px-4 rounded text-sm transition-colors"
@@ -2309,7 +2549,361 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, currentUserId, onGameA
           </div>
         </div>
       )}
+
+      {/* 空位置右键菜单 */}
+      {showContextMenu && (
+        <div 
+          className="fixed bg-white bg-opacity-90 backdrop-blur-md rounded-lg shadow-lg border border-gray-300 py-2 z-[10001]"
+          style={{
+            left: contextMenuPosition.x,
+            top: contextMenuPosition.y,
+            transform: 'translate(-50%, -10px)'
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            onClick={handleContextMenuAddCard}
+            className="w-full px-4 py-2 text-left text-gray-800 hover:bg-blue-100 transition-colors flex items-center space-x-2"
+          >
+            <span className="text-green-600">➕</span>
+            <span>添加卡牌</span>
+          </button>
+          <div className="px-4 py-1 text-xs text-gray-500 border-t border-gray-200 mt-1">
+            {contextMenuZone === 'battlefield' ? '牌桌区域' : '持续效果区域'} - 位置 {(contextMenuPosition_slot || 0) + 1}
+          </div>
+        </div>
+      )}
+
+      {/* 卡牌右键菜单 */}
+      {showCardContextMenu && cardContextMenuData && (
+        <div 
+          className="fixed bg-white bg-opacity-90 backdrop-blur-md rounded-lg shadow-lg border border-gray-300 py-2 z-[10001]"
+          style={{
+            left: cardContextMenuPosition.x,
+            top: cardContextMenuPosition.y,
+            transform: 'translate(-50%, -10px)'
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* 手牌区域显示多选、复制和调整费用 */}
+          {cardContextMenuData.zone === 'hand' && (
+            <>
+              <button
+                onClick={handleCardContextMenuMultiSelect}
+                className="w-full px-4 py-2 text-left text-gray-800 hover:bg-blue-100 transition-colors flex items-center space-x-2"
+              >
+                <span className="text-blue-600"></span>
+                <span>多选操作</span>
+              </button>
+              <button
+                onClick={() => {
+                  setModifyingHandCard({ 
+                    card: cardContextMenuData.card as Card, 
+                    index: cardContextMenuData.index 
+                  });
+                  closeCardContextMenu();
+                }}
+                className="w-full px-4 py-2 text-left text-gray-800 hover:bg-blue-100 transition-colors flex items-center space-x-2"
+              >
+                <span className="text-orange-600"></span>
+                <span>调整费用</span>
+              </button>
+              <button
+                onClick={handleCardContextMenuCopy}
+                className="w-full px-4 py-2 text-left text-gray-800 hover:bg-blue-100 transition-colors flex items-center space-x-2"
+              >
+                <span className="text-purple-600"></span>
+                <span>复制卡牌</span>
+              </button>
+            </>
+          )}
+          
+          {/* 牌桌/持续效果区域只显示复制 */}
+          {(cardContextMenuData.zone === 'battlefield' || cardContextMenuData.zone === 'effect') && (
+            <button
+              onClick={handleCardContextMenuCopy}
+              className="w-full px-4 py-2 text-left text-gray-800 hover:bg-blue-100 transition-colors flex items-center space-x-2"
+            >
+              <span className="text-purple-600"></span>
+              <span>复制卡牌</span>
+            </button>
+          )}
+          
+          <div className="px-4 py-1 text-xs text-gray-500 border-t border-gray-200 mt-1">
+            {cardContextMenuData.card.name} - {
+              cardContextMenuData.zone === 'hand' ? '手牌' : 
+              cardContextMenuData.zone === 'battlefield' ? '牌桌区域' : '持续效果区域'
+            }
+          </div>
+        </div>
+      )}
+
+      {/* 战斗模态框 */}
+      {showBattleModal && battleData && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[10000]">
+          <div className="bg-white bg-opacity-10 backdrop-blur-md rounded-xl p-6 max-w-2xl w-full mx-4">
+            <h3 className="text-xl font-bold text-white mb-4 text-center">⚔️ 卡牌战斗</h3>
+            
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              {/* 攻击者信息 */}
+              <div className="bg-blue-900 bg-opacity-30 border border-blue-500 rounded-lg p-4">
+                <div className="text-blue-300 text-sm font-semibold mb-2 text-center">攻击者</div>
+                <div className="text-white font-bold text-center mb-2">{battleData.attacker.card.name}</div>
+                <div className="text-center text-sm mb-2">
+                  <div className="text-red-400">攻击: {battleData.attacker.card.modifiedAttack !== undefined ? battleData.attacker.card.modifiedAttack : battleData.attacker.card.attack}</div>
+                  <div className="text-green-400">生命: {battleData.attacker.card.modifiedHealth !== undefined ? battleData.attacker.card.modifiedHealth : battleData.attacker.card.health}</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-orange-300 text-sm mb-2">受到伤害:</div>
+                  <input
+                    type="number"
+                    min="0"
+                    value={battleData.attackerDamage}
+                    onChange={(e) => {
+                      const newDamage = Math.max(0, parseInt(e.target.value) || 0);
+                      const currentHealth = battleData.attacker.card.modifiedHealth !== undefined ? 
+                                          battleData.attacker.card.modifiedHealth : (battleData.attacker.card.health || 0);
+                      setBattleData({
+                        ...battleData,
+                        attackerDamage: newDamage,
+                        attackerWillDie: currentHealth <= newDamage
+                      });
+                    }}
+                    className="w-16 px-2 py-1 bg-white bg-opacity-20 border border-gray-500 rounded text-white text-center text-sm focus:outline-none focus:ring-1 focus:ring-orange-500"
+                  />
+                  <div className="mt-2">
+                    <label className="flex items-center justify-center space-x-2">
+                      <input
+                        type="checkbox"
+                        checked={battleData.attackerWillDie}
+                        onChange={(e) => setBattleData({
+                          ...battleData,
+                          attackerWillDie: e.target.checked
+                        })}
+                        className="form-checkbox text-red-500"
+                      />
+                      <span className="text-red-300 text-sm">💀 将被摧毁</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* 防御者信息 */}
+              <div className="bg-red-900 bg-opacity-30 border border-red-500 rounded-lg p-4">
+                <div className="text-red-300 text-sm font-semibold mb-2 text-center">防御者</div>
+                <div className="text-white font-bold text-center mb-2">{battleData.defender.card.name}</div>
+                <div className="text-center text-sm mb-2">
+                  <div className="text-red-400">攻击: {battleData.defender.card.modifiedAttack !== undefined ? battleData.defender.card.modifiedAttack : battleData.defender.card.attack}</div>
+                  <div className="text-green-400">生命: {battleData.defender.card.modifiedHealth !== undefined ? battleData.defender.card.modifiedHealth : battleData.defender.card.health}</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-orange-300 text-sm mb-2">受到伤害:</div>
+                  <input
+                    type="number"
+                    min="0"
+                    value={battleData.defenderDamage}
+                    onChange={(e) => {
+                      const newDamage = Math.max(0, parseInt(e.target.value) || 0);
+                      const currentHealth = battleData.defender.card.modifiedHealth !== undefined ? 
+                                          battleData.defender.card.modifiedHealth : (battleData.defender.card.health || 0);
+                      setBattleData({
+                        ...battleData,
+                        defenderDamage: newDamage,
+                        defenderWillDie: currentHealth <= newDamage
+                      });
+                    }}
+                    className="w-16 px-2 py-1 bg-white bg-opacity-20 border border-gray-500 rounded text-white text-center text-sm focus:outline-none focus:ring-1 focus:ring-orange-500"
+                  />
+                  <div className="mt-2">
+                    <label className="flex items-center justify-center space-x-2">
+                      <input
+                        type="checkbox"
+                        checked={battleData.defenderWillDie}
+                        onChange={(e) => setBattleData({
+                          ...battleData,
+                          defenderWillDie: e.target.checked
+                        })}
+                        className="form-checkbox text-red-500"
+                      />
+                      <span className="text-red-300 text-sm">💀 将被摧毁</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 战斗结果预览 */}
+            <div className="bg-gray-800 bg-opacity-50 rounded-lg p-4 mb-4">
+              <div className="text-white text-sm font-semibold mb-2 text-center">战斗结果预览</div>
+              <div className="text-gray-300 text-sm text-center">
+                {battleData.attackerWillDie && battleData.defenderWillDie ? (
+                  "双方卡牌都将被摧毁"
+                ) : battleData.attackerWillDie ? (
+                  "攻击者将被摧毁"
+                ) : battleData.defenderWillDie ? (
+                  "防御者将被摧毁"
+                ) : (
+                  "双方卡牌都将存活"
+                )}
+              </div>
+              <div className="text-yellow-300 text-xs text-center mt-2">
+                💡 提示：可以修改伤害值和摧毁状态来自定义战斗结果
+              </div>
+            </div>
+            
+            <div className="flex space-x-3">
+              <button
+                onClick={() => {
+                  setShowBattleModal(false);
+                  setBattleData(null);
+                }}
+                className="flex-1 bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded transition-colors"
+              >
+                取消战斗
+              </button>
+              <button
+                onClick={handleConfirmBattle}
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded transition-colors"
+              >
+                确认战斗
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 攻击玩家模态框 */}
+      {showAttackPlayerModal && attackPlayerData && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[10000]">
+          <div className="bg-white bg-opacity-10 backdrop-blur-md rounded-xl p-6 max-w-md w-full mx-4">
+            <h3 className="text-xl font-bold text-white mb-4 text-center">🗡️ 攻击玩家</h3>
+            
+            <div className="bg-blue-900 bg-opacity-30 border border-blue-500 rounded-lg p-4 mb-4">
+              <div className="text-blue-300 text-sm font-semibold mb-2 text-center">攻击卡牌</div>
+              <div className="text-white font-bold text-center mb-2">{attackPlayerData.attacker.card.name}</div>
+              <div className="text-center text-sm">
+                <div className="text-red-400">基础攻击力: {attackPlayerData.attacker.card.modifiedAttack !== undefined ? attackPlayerData.attacker.card.modifiedAttack : attackPlayerData.attacker.card.attack}</div>
+              </div>
+            </div>
+
+            <div className="bg-red-900 bg-opacity-30 border border-red-500 rounded-lg p-4 mb-4">
+              <div className="text-red-300 text-sm font-semibold mb-2 text-center">伤害设置</div>
+              <div className="text-center">
+                <div className="text-orange-300 text-sm mb-2">造成伤害:</div>
+                <input
+                  type="number"
+                  min="0"
+                  value={attackPlayerData.damage}
+                  onChange={(e) => {
+                    const newDamage = Math.max(0, parseInt(e.target.value) || 0);
+                    setAttackPlayerData({
+                      ...attackPlayerData,
+                      damage: newDamage
+                    });
+                  }}
+                  className="w-20 px-2 py-1 bg-white bg-opacity-20 border border-gray-500 rounded text-white text-center text-lg font-bold focus:outline-none focus:ring-1 focus:ring-orange-500"
+                />
+                <div className="text-gray-300 text-sm mt-2">点伤害将对 {opponent?.username || '对手'} 造成</div>
+              </div>
+            </div>
+
+            <div className="bg-gray-800 bg-opacity-50 rounded-lg p-3 mb-4">
+              <div className="text-yellow-300 text-xs text-center">
+                💡 提示：可以修改伤害值来自定义攻击结果
+              </div>
+            </div>
+            
+            <div className="flex space-x-3">
+              <button
+                onClick={() => {
+                  setShowAttackPlayerModal(false);
+                  setAttackPlayerData(null);
+                }}
+                className="flex-1 bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded transition-colors"
+              >
+                取消攻击
+              </button>
+              <button
+                onClick={handleConfirmAttackPlayer}
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded transition-colors"
+              >
+                确认攻击
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 展示手牌确认模态框 */}
+      {showDisplayHandConfirmModal && displayHandConfirmData && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[10000]">
+          <div className="bg-white bg-opacity-10 backdrop-blur-md rounded-xl p-6 max-w-lg w-full mx-4">
+            <h3 className="text-xl font-bold text-white mb-4 text-center">🔍 展示手牌确认</h3>
+            
+            <div className="bg-yellow-900 bg-opacity-30 border border-yellow-500 rounded-lg p-4 mb-4">
+              <div className="text-yellow-300 text-sm font-semibold mb-2 text-center">
+                {displayHandConfirmData.type === 'all' ? '展示全部手牌' : '展示选中手牌'}
+              </div>
+              <div className="text-center">
+                <div className="text-white text-2xl font-bold mb-2">{displayHandConfirmData.count}</div>
+                <div className="text-gray-300 text-sm">张手牌将向对手展示</div>
+              </div>
+            </div>
+
+            <div className="bg-gray-800 bg-opacity-50 rounded-lg p-4 mb-4">
+              <div className="text-white text-sm font-semibold mb-2 text-center">将要展示的卡牌</div>
+              <div className="grid grid-cols-3 gap-2 max-h-40 overflow-y-auto">
+                {displayHandConfirmData.cards.map((card: Card, index: number) => (
+                  <div key={index} className="bg-blue-600 bg-opacity-50 rounded p-2 text-white text-xs text-center">
+                    <div className="font-semibold mb-1">{card.name}</div>
+                    <div>费用: {card.cost}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="bg-gray-800 bg-opacity-50 rounded-lg p-3 mb-4">
+              <div className="text-yellow-300 text-xs text-center">
+                ⚠️ 展示的手牌将对对手可见，确定要继续吗？
+              </div>
+            </div>
+            
+            <div className="flex space-x-3">
+              <button
+                onClick={() => {
+                  setShowDisplayHandConfirmModal(false);
+                  setDisplayHandConfirmData(null);
+                }}
+                className="flex-1 bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded transition-colors"
+              >
+                取消
+              </button>
+              <button
+                onClick={() => {
+                  if (displayHandConfirmData.type === 'all') {
+                    onGameAction('display-all-hand', { 
+                      cards: displayHandConfirmData.cards,
+                      message: `展示了全部手牌 (${displayHandConfirmData.count} 张)`
+                    });
+                  } else {
+                    onGameAction('display-selected-hand', { 
+                      cards: displayHandConfirmData.cards,
+                      message: `展示了 ${displayHandConfirmData.count} 张手牌`
+                    });
+                  }
+                  setShowDisplayHandConfirmModal(false);
+                  setDisplayHandConfirmData(null);
+                }}
+                className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white py-2 px-4 rounded transition-colors"
+              >
+                确认展示
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
+    </>
   );
 };
 

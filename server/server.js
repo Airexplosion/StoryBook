@@ -1901,6 +1901,161 @@ io.on('connection', (socket) => {
           }
           break;
 
+        case 'remove-card-from-field':
+          // 从场上完全移除卡牌（拖拽到界面外）
+          const { cardIndex: removeFieldIndex, zone: removeFieldZone } = data;
+          let removedFieldCard;
+          
+          if (removeFieldZone === 'battlefield' && player.battlefield.length > removeFieldIndex && removeFieldIndex >= 0 && player.battlefield[removeFieldIndex]) {
+            removedFieldCard = player.battlefield[removeFieldIndex];
+            player.battlefield[removeFieldIndex] = null; // 设置为null而不是删除，保持位置
+            
+            // 从游戏板移除
+            roomState.gameState.gameBoard.playerCards = roomState.gameState.gameBoard.playerCards.filter(
+              card => !(card._id === removedFieldCard._id && card.ownerId === userId)
+            );
+          } else if (removeFieldZone === 'effect' && player.effectZone.length > removeFieldIndex && removeFieldIndex >= 0 && player.effectZone[removeFieldIndex]) {
+            removedFieldCard = player.effectZone[removeFieldIndex];
+            player.effectZone[removeFieldIndex] = null; // 设置为null而不是删除，保持位置
+            
+            // 从游戏板移除
+            roomState.gameState.gameBoard.effectCards = roomState.gameState.gameBoard.effectCards.filter(
+              card => !(card._id === removedFieldCard._id && card.ownerId === userId)
+            );
+          }
+          
+          if (removedFieldCard) {
+            updateNeeded = true;
+            const zoneText = removeFieldZone === 'battlefield' ? '牌桌' : '效果';
+            broadcastData.message = `${player.username} 从${zoneText}区域完全移除了卡牌: ${removedFieldCard.name}`;
+            broadcastData.cardData = removedFieldCard;
+            console.log(`[REMOVE-FROM-FIELD] ${player.username} 从${zoneText}区域移除卡牌 ${removedFieldCard.name}`);
+          }
+          break;
+
+        case 'card-battle':
+          // 处理卡牌战斗
+          const { attacker, defender, attackerDamage, defenderDamage, attackerWillDie, defenderWillDie } = data;
+          
+          // 找到攻击者和防御者的玩家
+          const attackerPlayer = roomState.players.find(p => p.userId === userId);
+          const defenderPlayer = roomState.players.find(p => p.userId !== userId);
+          
+          if (attackerPlayer && defenderPlayer) {
+            // 获取攻击者卡牌
+            let attackerCard;
+            if (attacker.zone === 'battlefield' && attackerPlayer.battlefield[attacker.index]) {
+              attackerCard = attackerPlayer.battlefield[attacker.index];
+            } else if (attacker.zone === 'effect' && attackerPlayer.effectZone[attacker.index]) {
+              attackerCard = attackerPlayer.effectZone[attacker.index];
+            }
+            
+            // 获取防御者卡牌
+            let defenderCard;
+            if (defender.zone === 'battlefield' && defenderPlayer.battlefield[defender.index]) {
+              defenderCard = defenderPlayer.battlefield[defender.index];
+            } else if (defender.zone === 'effect' && defenderPlayer.effectZone[defender.index]) {
+              defenderCard = defenderPlayer.effectZone[defender.index];
+            }
+            
+            if (attackerCard && defenderCard) {
+              // 应用伤害
+              if (attackerDamage > 0) {
+                const currentAttackerHealth = attackerCard.modifiedHealth !== undefined ? attackerCard.modifiedHealth : attackerCard.health;
+                const newAttackerHealth = Math.max(0, currentAttackerHealth - attackerDamage);
+                attackerCard.modifiedHealth = newAttackerHealth;
+                if (!attackerCard.originalHealth) {
+                  attackerCard.originalHealth = attackerCard.health;
+                }
+              }
+              
+              if (defenderDamage > 0) {
+                const currentDefenderHealth = defenderCard.modifiedHealth !== undefined ? defenderCard.modifiedHealth : defenderCard.health;
+                const newDefenderHealth = Math.max(0, currentDefenderHealth - defenderDamage);
+                defenderCard.modifiedHealth = newDefenderHealth;
+                if (!defenderCard.originalHealth) {
+                  defenderCard.originalHealth = defenderCard.health;
+                }
+              }
+              
+              // 处理死亡
+              if (attackerWillDie) {
+                if (attacker.zone === 'battlefield') {
+                  attackerPlayer.graveyard.push(attackerCard);
+                  attackerPlayer.battlefield[attacker.index] = null;
+                } else if (attacker.zone === 'effect') {
+                  attackerPlayer.graveyard.push(attackerCard);
+                  attackerPlayer.effectZone[attacker.index] = null;
+                }
+              }
+              
+              if (defenderWillDie) {
+                if (defender.zone === 'battlefield') {
+                  defenderPlayer.graveyard.push(defenderCard);
+                  defenderPlayer.battlefield[defender.index] = null;
+                } else if (defender.zone === 'effect') {
+                  defenderPlayer.graveyard.push(defenderCard);
+                  defenderPlayer.effectZone[defender.index] = null;
+                }
+              }
+              
+              updateNeeded = true;
+              
+              // 生成战斗结果消息
+              let battleResult = '';
+              if (attackerWillDie && defenderWillDie) {
+                battleResult = '双方卡牌都被摧毁';
+              } else if (attackerWillDie) {
+                battleResult = `${attackerCard.name} 被摧毁`;
+              } else if (defenderWillDie) {
+                battleResult = `${defenderCard.name} 被摧毁`;
+              } else {
+                battleResult = `${attackerCard.name} 受到${attackerDamage}点伤害，${defenderCard.name} 受到${defenderDamage}点伤害`;
+              }
+              
+              broadcastData.message = `${attackerPlayer.username} 的 ${attackerCard.name} 攻击了 ${defenderPlayer.username} 的 ${defenderCard.name}，${battleResult}`;
+              
+              console.log(`[CARD-BATTLE] ${attackerPlayer.username} 的 ${attackerCard.name} 攻击 ${defenderPlayer.username} 的 ${defenderCard.name}`);
+            }
+          }
+          break;
+
+        case 'attack-player':
+          // 处理攻击玩家
+          const { attacker: playerAttacker, damage } = data;
+          
+          // 找到攻击者和被攻击者的玩家
+          const attackingPlayer = roomState.players.find(p => p.userId === userId);
+          const targetPlayer = roomState.players.find(p => p.userId !== userId);
+          
+          if (attackingPlayer && targetPlayer) {
+            // 获取攻击者卡牌
+            let attackingCard;
+            if (playerAttacker.zone === 'battlefield' && attackingPlayer.battlefield[playerAttacker.index]) {
+              attackingCard = attackingPlayer.battlefield[playerAttacker.index];
+            } else if (playerAttacker.zone === 'effect' && attackingPlayer.effectZone[playerAttacker.index]) {
+              attackingCard = attackingPlayer.effectZone[playerAttacker.index];
+            }
+            
+            if (attackingCard && damage > 0) {
+              // 对目标玩家造成伤害
+              targetPlayer.health = Math.max(0, targetPlayer.health - damage);
+              
+              updateNeeded = true;
+              broadcastData.message = `${attackingPlayer.username} 的 ${attackingCard.name} 攻击了 ${targetPlayer.username}，造成${damage}点伤害`;
+              
+              // 检查是否有玩家死亡
+              if (targetPlayer.health <= 0) {
+                broadcastData.message += `，${targetPlayer.username} 被击败！`;
+                roomState.gameState.phase = 'ended';
+                roomState.gameState.winner = attackingPlayer.username;
+              }
+              
+              console.log(`[ATTACK-PLAYER] ${attackingPlayer.username} 的 ${attackingCard.name} 攻击玩家 ${targetPlayer.username}，造成${damage}点伤害`);
+            }
+          }
+          break;
+
       }
       
       // 发送游戏更新（如果有消息的话）
