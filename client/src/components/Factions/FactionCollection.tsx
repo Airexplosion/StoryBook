@@ -158,6 +158,7 @@ const FactionCollection: React.FC = () => {
   const location = useLocation();
   const { config, isLoading, error } = useSelector((state: RootState) => state.config);
   const [searchTerm, setSearchTerm] = useState('');
+  const [tagFilter, setTagFilter] = useState('all');
   const [filteredFactions, setFilteredFactions] = useState<Faction[]>([]);
   const [selectedFaction, setSelectedFaction] = useState<Faction | null>(null);
   const [isAnimating, setIsAnimating] = useState(false);
@@ -177,6 +178,61 @@ const FactionCollection: React.FC = () => {
   const hasEnteredRef = useRef(false);
   const locationKeyRef = useRef(location.key);
   */
+
+  // 提取所有可用的标签（排除中立相关标签）并按指定顺序排序
+  const getAvailableTags = () => {
+    if (!config?.factions) return [];
+    const tags = new Set<string>();
+    config.factions.forEach(faction => {
+      // 排除中立主角的标签（包括名称中包含"中立"的）
+      const isNeutral = faction.id === 'neutral' || 
+                       faction.name.includes('中立') || 
+                       faction.name.toLowerCase().includes('neutral');
+      if (isNeutral) return;
+      
+      if (faction.tags && Array.isArray(faction.tags)) {
+        faction.tags.forEach(tag => {
+          if (tag && typeof tag === 'string' && tag.trim()) {
+            const trimmedTag = tag.trim();
+            // 排除中立相关的标签
+            const isNeutralTag = trimmedTag === '中立' || 
+                                trimmedTag.toLowerCase() === 'neutral';
+            if (!isNeutralTag) {
+              tags.add(trimmedTag);
+            }
+          }
+        });
+      }
+    });
+    
+    // 自定义排序：基础 第一季 第二季 第三季 第四季 第五季，其他按字母排序
+    const tagArray = Array.from(tags);
+    const priorityOrder = [
+      { key: '基础', priority: 0 },
+      { key: '第一季', priority: 1 },
+      { key: '第二季', priority: 2 },
+      { key: '第三季', priority: 3 },
+      { key: '第四季', priority: 4 },
+      { key: '第五季', priority: 5 }
+    ];
+    
+    return tagArray.sort((a, b) => {
+      // 检查标签是否包含优先级关键词
+      const aPriority = priorityOrder.find(p => a.includes(p.key));
+      const bPriority = priorityOrder.find(p => b.includes(p.key));
+      
+      // 如果两个都有优先级，按优先级排序
+      if (aPriority && bPriority) {
+        return aPriority.priority - bPriority.priority;
+      }
+      // 如果只有a有优先级，a排在前面
+      if (aPriority) return -1;
+      // 如果只有b有优先级，b排在前面
+      if (bPriority) return 1;
+      // 如果都没有优先级，按字母排序
+      return a.localeCompare(b);
+    });
+  };
 
   useEffect(() => {
     dispatch(fetchConfig());
@@ -203,10 +259,26 @@ const FactionCollection: React.FC = () => {
 
   useEffect(() => {
     if (config?.factions) {
-      const filtered = config.factions.filter(faction =>
-        faction.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (faction.description && faction.description.toLowerCase().includes(searchTerm.toLowerCase()))
-      );
+      let filtered = config.factions.filter(faction => {
+        // 排除中立主角（包括名称中包含"中立"的）
+        const isNeutral = faction.id === 'neutral' || 
+                         faction.name.includes('中立') || 
+                         faction.name.toLowerCase().includes('neutral');
+        if (isNeutral) return false;
+        
+        // 搜索筛选
+        return faction.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+               (faction.description && faction.description.toLowerCase().includes(searchTerm.toLowerCase()));
+      });
+      
+      // 标签筛选
+      if (tagFilter !== 'all') {
+        filtered = filtered.filter(faction => {
+          if (!faction.tags || !Array.isArray(faction.tags)) return false;
+          return faction.tags.some(tag => tag && typeof tag === 'string' && tag === tagFilter);
+        });
+      }
+      
       setFilteredFactions(filtered);
       setCurrentPage(1); // 重置到第一页
       
@@ -227,7 +299,7 @@ const FactionCollection: React.FC = () => {
       }
       */
     }
-  }, [config?.factions, searchTerm, location.pathname]);
+  }, [config?.factions, searchTerm, tagFilter, location.pathname]);
 
   // 计算分页数据
   const totalPages = Math.ceil(filteredFactions.length / itemsPerPage);
@@ -337,6 +409,8 @@ const FactionCollection: React.FC = () => {
             </div>
           </div>
         </div>
+
+
       </div>
 
 
@@ -359,6 +433,75 @@ const FactionCollection: React.FC = () => {
           </svg>
         </div>
         <div className="flex-1 h-px" style={{ backgroundColor: '#C2B79C' }}></div>
+      </div>
+
+      {/* 标签分栏 - Header样式 */}
+      <div className="mb-8">
+        <style>{`
+          .faction-tag-nav-scroll::-webkit-scrollbar {
+            display: none;
+          }
+          .faction-tag-nav-scroll {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+          }
+        `}</style>
+        <div className="relative">
+          {/* 标签导航栏 */}
+          <div className="faction-tag-nav-scroll flex items-center justify-center space-x-8 overflow-x-auto pb-4">
+            <button
+              onClick={() => setTagFilter('all')}
+              className={`relative pb-4 px-2 whitespace-nowrap transition-all duration-300 ${
+                tagFilter === 'all' 
+                  ? 'text-white' 
+                  : 'text-gray-400 hover:text-gray-200'
+              }`}
+              style={{
+                fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif',
+                fontSize: '16px'
+              }}
+            >
+              全部
+              {/* 选中时的下划线 */}
+              {tagFilter === 'all' && (
+                <div 
+                  className="absolute bottom-0 left-0 right-0 h-0.5 transition-all duration-300"
+                  style={{ backgroundColor: '#C2B79C' }}
+                />
+              )}
+            </button>
+            {getAvailableTags().map(tag => (
+              <button
+                key={tag}
+                onClick={() => setTagFilter(tag)}
+                className={`relative pb-4 px-2 whitespace-nowrap transition-all duration-300 ${
+                  tagFilter === tag 
+                    ? 'text-white' 
+                    : 'text-gray-400 hover:text-gray-200'
+                }`}
+                style={{
+                  fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif',
+                  fontSize: '16px'
+                }}
+              >
+                {tag}
+                {/* 选中时的下划线 */}
+                {tagFilter === tag && (
+                  <div 
+                    className="absolute bottom-0 left-0 right-0 h-0.5 transition-all duration-300"
+                    style={{ backgroundColor: '#C2B79C' }}
+                  />
+                )}
+              </button>
+            ))}
+          </div>
+          
+          {/* 底部分割线 */}
+          <div 
+            className="absolute bottom-0 left-0 right-0 h-px"
+            style={{ backgroundColor: 'rgba(194, 183, 156, 0.3)' }}
+          />
+        </div>
       </div>
 
       {/* 筛选器 */}
@@ -807,49 +950,18 @@ const FactionCard: React.FC<{
             </div>
           </div>
 
-          {/* 标签显示 */}
-          {faction.tags && faction.tags.length > 0 && (
-            <div className="text-center mb-2" style={{ marginTop: '140px' }}>
-              <div className="flex flex-wrap justify-center gap-1">
-                {faction.tags.slice(0, 3).map((tag, index) => (
-                  <span
-                    key={index}
-                    className="px-2 py-1 text-xs rounded-full"
-                    style={{
-                      backgroundColor: 'rgba(145, 130, 115, 0.2)',
-                      color: '#918273',
-                      border: '1px solid rgba(145, 130, 115, 0.3)'
-                    }}
-                  >
-                    {tag}
-                  </span>
-                ))}
-                {faction.tags.length > 3 && (
-                  <span
-                    className="px-2 py-1 text-xs rounded-full"
-                    style={{
-                      backgroundColor: 'rgba(145, 130, 115, 0.2)',
-                      color: '#918273',
-                      border: '1px solid rgba(145, 130, 115, 0.3)'
-                    }}
-                  >
-                    +{faction.tags.length - 3}
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
+
 
           {/* 主战者效果描述 */}
-          <div className="text-center flex justify-center" style={{ marginTop: faction.tags && faction.tags.length > 0 ? '20px' : '180px' }}>
+          <div className="text-center flex justify-center" style={{ marginTop: '180px' }}>
             <div 
-              className="text-sm leading-relaxed overflow-hidden"
+              className="text-sm leading-relaxed overflow-hidden whitespace-pre-wrap"
               style={{ 
                 color: '#111111',
                 textShadow: '1px 1px 2px rgba(255,255,255,0.8)',
-                height: faction.tags && faction.tags.length > 0 ? '70px' : '90px',
+                height: '90px',
                 display: '-webkit-box',
-                WebkitLineClamp: faction.tags && faction.tags.length > 0 ? 2 : 3,
+                WebkitLineClamp: 3,
                 WebkitBoxOrient: 'vertical',
                 textOverflow: 'ellipsis',
                 width: '200px'
@@ -913,9 +1025,15 @@ const FactionDetailModal: React.FC<{ faction: Faction; onClose: () => void }> = 
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
-      <div className="relative flex flex-col items-center">
-        {/* 关闭按钮移到下方 */}
+    <div 
+      className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4"
+      onClick={onClose}
+    >
+      <div 
+        className="relative flex flex-col items-center"
+        onClick={(e) => e.stopPropagation()}
+      >
+
 
         {/* 卡片容器 - 和预览卡片相同的结构，放大1.7倍 */}
         <div
@@ -977,40 +1095,11 @@ const FactionDetailModal: React.FC<{ faction: Faction; onClose: () => void }> = 
               </div>
             </div>
 
-            {/* 标签显示 - 详情弹窗中显示所有标签 */}
-            {faction.tags && faction.tags.length > 0 && (
-              <div className="text-center mb-4" style={{ marginTop: '200px' }}>
-                <div className="mb-2">
-                  <span style={{ 
-                    fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif',
-                    fontSize: '16px',
-                    color: '#918273',
-                    fontWeight: '500'
-                  }}>
-                    标签
-                  </span>
-                </div>
-                <div className="flex flex-wrap justify-center gap-2">
-                  {faction.tags.map((tag, index) => (
-                    <span
-                      key={index}
-                      className="px-3 py-1 text-sm rounded-full"
-                      style={{
-                        backgroundColor: 'rgba(145, 130, 115, 0.2)',
-                        color: '#918273',
-                        border: '1px solid rgba(145, 130, 115, 0.3)'
-                      }}
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
+
 
             {/* 图片显示 */}
             {faction.image && (
-              <div className="text-center mb-4" style={{ marginTop: faction.tags && faction.tags.length > 0 ? '20px' : '220px' }}>
+              <div className="text-center mb-4" style={{ marginTop: '220px' }}>
                 <div className="mb-2">
                   <span style={{ 
                     fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif',
@@ -1054,20 +1143,18 @@ const FactionDetailModal: React.FC<{ faction: Faction; onClose: () => void }> = 
             {/* 主战者效果描述 - 完整显示 */}
             <div className="text-center flex justify-center" style={{ 
               marginTop: (() => {
-                let baseMargin = 280; // 从240增加到260，向下移动20px
-                if (faction.tags && faction.tags.length > 0) baseMargin -= 40;
+                let baseMargin = 280;
                 if (faction.image) baseMargin -= 60;
-                return `${Math.max(baseMargin, 40)}px`; // 最小值也从20增加到40
+                return `${Math.max(baseMargin, 40)}px`;
               })()
             }}>
               <div 
-                className="text-lg leading-relaxed overflow-y-auto custom-scrollbar"
+                className="text-lg leading-relaxed overflow-y-auto custom-scrollbar whitespace-pre-wrap"
                 style={{ 
                   color: '#111111',
                   textShadow: '1px 1px 2px rgba(255,255,255,0.8)',
                   height: (() => {
                     let baseHeight = 153;
-                    if (faction.tags && faction.tags.length > 0) baseHeight -= 40;
                     if (faction.image) baseHeight -= 60;
                     return `${Math.max(baseHeight, 60)}px`;
                   })(),
@@ -1077,25 +1164,7 @@ const FactionDetailModal: React.FC<{ faction: Faction; onClose: () => void }> = 
                   padding: '5px'
                 }}
               >
-                {faction.description ? (
-                  <div>
-                    {faction.description.split('*').map((part, index) => {
-                      if (index === 0) {
-                        // 第一部分，*之前的内容
-                        return <span key={index}>{part}</span>;
-                      } else {
-                        // *之后的内容，换行并斜体显示
-                        return (
-                          <div key={index}>
-                            <span style={{ fontStyle: 'italic' }}>*{part}</span>
-                          </div>
-                        );
-                      }
-                    })}
-                  </div>
-                ) : (
-                  '暂无详细描述'
-                )}
+                {faction.description || '暂无详细描述'}
               </div>
             </div>
 
@@ -1103,7 +1172,7 @@ const FactionDetailModal: React.FC<{ faction: Faction; onClose: () => void }> = 
           </div>
         </div>
         
-        {/* 故事链接按钮区域 - 位于卡片和关闭按钮之间 */}
+        {/* 故事链接按钮区域 */}
         <div className="mt-6 flex flex-col items-center space-y-3">
           {/* 管理员配置故事链接按钮 */}
           {user?.isAdmin && (
@@ -1232,22 +1301,7 @@ const FactionDetailModal: React.FC<{ faction: Faction; onClose: () => void }> = 
           )}
         </div>
 
-        {/* 关闭按钮 - 位于故事链接按钮下方 */}
-        <button
-          onClick={onClose}
-          className="mt-4 rounded-full p-2 transition-colors shadow-lg hover:bg-gray-800 hover:bg-opacity-20"
-          style={{
-            backgroundColor: 'transparent'
-          }}
-        >
-          <svg 
-            className="w-8 h-8" 
-            viewBox="0 0 1024 1024" 
-            fill="#FBFBFB"
-          >
-            <path d="M589.824 501.76L998.4 93.184c20.48-20.48 20.48-54.784 0-75.264l-2.048-2.048c-20.48-20.48-54.784-20.48-75.264 0L512.512 424.96 103.936 15.36c-20.48-20.48-54.784-20.48-75.264 0l-2.56 2.56C5.12 38.4 5.12 72.192 26.112 93.184L434.688 501.76 26.112 910.336c-20.48 20.48-20.48 54.784 0 75.264l2.048 2.048c20.48 20.48 54.784 20.48 75.264 0l408.576-408.576 408.576 408.576c20.48 20.48 54.784 20.48 75.264 0l2.048-2.048c20.48-20.48 20.48-54.784 0-75.264L589.824 501.76z" />
-          </svg>
-        </button>
+
       </div>
     </div>
   );

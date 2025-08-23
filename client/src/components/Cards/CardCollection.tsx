@@ -273,6 +273,10 @@ const CardCollection: React.FC = () => {
 
 
 
+
+
+
+
   // 加载卡牌数据
   const loadCards = async (page: number = currentPage) => {
     setIsLoading(true);
@@ -293,7 +297,11 @@ const CardCollection: React.FC = () => {
       const response = await api.cards.getAll(params);
       const data = response.data;
       
-      setCards(data.cards || []);
+      let filteredCards = data.cards || [];
+      
+
+      
+      setCards(filteredCards);
       setPagination(data.pagination);
     } catch (err: any) {
       setError(err.message || '加载卡牌失败');
@@ -302,6 +310,12 @@ const CardCollection: React.FC = () => {
       setIsLoading(false);
     }
   };
+
+
+
+
+
+
 
   // 防抖搜索处理
   const handleSearchChange = (value: string) => {
@@ -692,6 +706,8 @@ const CardCollection: React.FC = () => {
             }}
           />
         </div>
+
+
 
         {/* 筛选和排序选项 */}
         <div className="flex flex-col md:flex-row gap-4 mb-4">
@@ -1945,7 +1961,7 @@ const CardComponent: React.FC<{
           {/* 卡牌效果描述 */}
           <div className="text-center flex justify-center" style={{ marginTop: '220px', height: '65px' }}>
                           <div 
-                className="text-sm leading-relaxed"
+                className="text-sm leading-relaxed whitespace-pre-wrap"
                 style={{ 
                   color: '#111111',
                   textShadow: '1px 1px 2px rgba(255,255,255,0.8)',
@@ -2046,7 +2062,10 @@ const CardDetailModal: React.FC<{
   });
   
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
+    <div 
+      className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4"
+      onClick={onClose}
+    >
       {/* 详情弹窗专用提示框 */}
       {detailTooltip.isVisible && (
         <div 
@@ -2078,8 +2097,12 @@ const CardDetailModal: React.FC<{
           />
         </div>
       )}
-      <div className="relative flex flex-col items-center">
-        {/* 卡片容器 - 和预览卡片相同的结构，放大1.7倍 */}
+      <div 
+        className="relative flex flex-col items-center"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-center gap-8">
+          {/* 卡片容器 - 和预览卡片相同的结构，放大1.7倍 */}
         <div
           className="relative rounded-xl shadow-2xl border border-opacity-20 border-white backdrop-blur-sm overflow-hidden card-detail-modal"
           style={{
@@ -2373,9 +2396,7 @@ const CardDetailModal: React.FC<{
                 <div className="text-sm" style={{ color: '#918273' }}>
                   <span style={{ letterSpacing: '-0.5px' }}>{card.faction}·{card.category}</span>
                 </div>
-                <div className="text-xs mt-1" style={{ color: '#666' }}>
-                  创建者: {card.createdBy.username}
-                </div>
+
               </div>
             )}
 
@@ -2398,7 +2419,7 @@ const CardDetailModal: React.FC<{
                   }}
                 >
                   {card.effect ? (
-                    <div>
+                    <div className="whitespace-pre-wrap">
                       {card.effect.split('*').map((part, index) => {
                         if (index === 0) {
                           return <span key={index}>{formatEffectText(part, setDetailTooltip)}</span>;
@@ -2417,29 +2438,7 @@ const CardDetailModal: React.FC<{
                 </div>
               </div>
 
-              {/* 风味文字 */}
-              {card.flavor && (
-                <div style={{ marginBottom: '10px' }}>
-                  <div 
-                    className="italic leading-relaxed"
-                    style={{ 
-                      color: '#666', 
-                      maxWidth: '340px', 
-                      margin: '0 auto',
-                      fontSize: '14px'
-                    }}
-                  >
-                    "{card.flavor}"
-                  </div>
-                </div>
-              )}
 
-              {/* 创建者信息 */}
-              <div>
-                <div className="text-sm" style={{ color: '#918273' }}>
-                  创建者: {card.createdBy.username}
-                </div>
-              </div>
             </div>
 
             {/* 底部卡牌信息 - 相对于整个卡片容器定位 - 只有非主角牌且非关键字效果才显示 */}
@@ -2477,22 +2476,46 @@ const CardDetailModal: React.FC<{
           </div>
         </div>
         
-        {/* 关闭按钮 - 位于卡片下方30px，居中 */}
-        <button
-          onClick={onClose}
-          className="mt-8 rounded-full p-2 transition-colors shadow-lg hover:bg-gray-800 hover:bg-opacity-20"
-          style={{
-            backgroundColor: 'transparent'
-          }}
-        >
-          <svg 
-            className="w-8 h-8" 
-            viewBox="0 0 1024 1024" 
-            fill="#FBFBFB"
-          >
-            <path d="M589.824 501.76L998.4 93.184c20.48-20.48 20.48-54.784 0-75.264l-2.048-2.048c-20.48-20.48-54.784-20.48-75.264 0L512.512 424.96 103.936 15.36c-20.48-20.48-54.784-20.48-75.264 0l-2.56 2.56C5.12 38.4 5.12 72.192 26.112 93.184L434.688 501.76 26.112 910.336c-20.48 20.48-20.48 54.784 0 75.264l2.048 2.048c20.48 20.48 54.784 20.48 75.264 0l408.576-408.576 408.576 408.576c20.48 20.48 54.784 20.48 75.264 0l2.048-2.048c20.48-20.48 20.48-54.784 0-75.264L589.824 501.76z" />
-          </svg>
-        </button>
+        {/* 右侧风味文字区域 */}
+        {card.flavor && (
+          <div className="flex flex-col justify-center" style={{ width: '300px', height: '685px' }}>
+            <div className="p-6" style={{ 
+              backgroundColor: 'rgba(0, 0, 0, 0.3)',
+              backdropFilter: 'blur(10px)',
+              border: '1px solid rgba(255, 255, 255, 0.1)'
+            }}>
+              {/* 上分割线 */}
+              <div style={{
+                width: '100%',
+                height: '1px',
+                backgroundColor: '#C2B79C',
+                marginBottom: '16px'
+              }}></div>
+              
+              <div 
+                className="leading-relaxed text-center whitespace-pre-wrap"
+                style={{ 
+                  color: '#FBFBFB', 
+                  fontSize: '16px',
+                  lineHeight: '1.8',
+                  fontFamily: 'KaiTi, STKaiti, "华文楷体", serif'
+                }}
+              >
+                {card.flavor || '没有风味文字'}
+              </div>
+              
+              {/* 下分割线 */}
+              <div style={{
+                width: '100%',
+                height: '1px',
+                backgroundColor: '#C2B79C',
+                marginTop: '16px'
+              }}></div>
+            </div>
+          </div>
+        )}
+        </div>
+
       </div>
     </div>
   );

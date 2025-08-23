@@ -50,6 +50,8 @@ export interface Deck {
   totalCards: number;
   isPublic: boolean;
   isFavorited?: boolean;
+  isRecommended?: boolean;
+  recommendReason?: string;
   createdBy: {
     _id: string;
     username: string;

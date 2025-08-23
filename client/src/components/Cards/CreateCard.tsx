@@ -388,7 +388,7 @@ const CreateCard: React.FC = () => {
                           </div>
                           
                           {/* 第三行：效果 */}
-                          <div className="text-sm text-gray-700">
+                          <div className="text-sm text-gray-700 whitespace-pre-wrap">
                             <strong>效果:</strong> {card.effect}
                           </div>
                         </div>

@@ -97,8 +97,8 @@ const Navbar: React.FC = () => {
                 规则书
               </Link>
               
-              {/* 批量导入 - 仅登录用户可见 */}
-              {user && (
+              {/* 管理设置 - 仅管理员可见 */}
+              {user?.isAdmin && (
                 <div className="relative group">
                   <button 
                     className="px-3 py-2 rounded-md transition-colors duration-300 flex items-center" 
@@ -121,64 +121,60 @@ const Navbar: React.FC = () => {
                     >
                       批量导入卡牌
                     </Link>
-                    {user.isAdmin && (
-                      <>
-                        <Link 
-                          to="/heroes/batch-import" 
-                          className="block px-4 py-2 text-sm transition-colors duration-300"
-                          style={{ color: '#AEAEAE', fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif' }}
-                          onMouseEnter={(e) => e.currentTarget.style.color = '#FBFBFB'}
-                          onMouseLeave={(e) => e.currentTarget.style.color = '#AEAEAE'}
-                        >
-                          批量导入主战者
-                        </Link>
-                        <Link 
-                          to="/cards/create" 
-                          className="block px-4 py-2 text-sm transition-colors duration-300"
-                          style={{ color: '#AEAEAE', fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif' }}
-                          onMouseEnter={(e) => e.currentTarget.style.color = '#FBFBFB'}
-                          onMouseLeave={(e) => e.currentTarget.style.color = '#AEAEAE'}
-                        >
-                          创建卡牌
-                        </Link>
-                        <Link 
-                          to="/factions/manage" 
-                          className="block px-4 py-2 text-sm transition-colors duration-300"
-                          style={{ color: '#AEAEAE', fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif' }}
-                          onMouseEnter={(e) => e.currentTarget.style.color = '#FBFBFB'}
-                          onMouseLeave={(e) => e.currentTarget.style.color = '#AEAEAE'}
-                        >
-                          管理主战者
-                        </Link>
-                        <Link 
-                          to="/types/manage" 
-                          className="block px-4 py-2 text-sm transition-colors duration-300"
-                          style={{ color: '#AEAEAE', fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif' }}
-                          onMouseEnter={(e) => e.currentTarget.style.color = '#FBFBFB'}
-                          onMouseLeave={(e) => e.currentTarget.style.color = '#AEAEAE'}
-                        >
-                          管理类型
-                        </Link>
-                        <Link 
-                          to="/categories/manage" 
-                          className="block px-4 py-2 text-sm transition-colors duration-300"
-                          style={{ color: '#AEAEAE', fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif' }}
-                          onMouseEnter={(e) => e.currentTarget.style.color = '#FBFBFB'}
-                          onMouseLeave={(e) => e.currentTarget.style.color = '#AEAEAE'}
-                        >
-                          管理类别
-                        </Link>
-                        <Link 
-                          to="/settings/export" 
-                          className="block px-4 py-2 text-sm rounded-b-md transition-colors duration-300"
-                          style={{ color: '#AEAEAE', fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif' }}
-                          onMouseEnter={(e) => e.currentTarget.style.color = '#FBFBFB'}
-                          onMouseLeave={(e) => e.currentTarget.style.color = '#AEAEAE'}
-                        >
-                          数据导出
-                        </Link>
-                      </>
-                    )}
+                    <Link 
+                      to="/heroes/batch-import" 
+                      className="block px-4 py-2 text-sm transition-colors duration-300"
+                      style={{ color: '#AEAEAE', fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif' }}
+                      onMouseEnter={(e) => e.currentTarget.style.color = '#FBFBFB'}
+                      onMouseLeave={(e) => e.currentTarget.style.color = '#AEAEAE'}
+                    >
+                      批量导入主战者
+                    </Link>
+                    <Link 
+                      to="/cards/create" 
+                      className="block px-4 py-2 text-sm transition-colors duration-300"
+                      style={{ color: '#AEAEAE', fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif' }}
+                      onMouseEnter={(e) => e.currentTarget.style.color = '#FBFBFB'}
+                      onMouseLeave={(e) => e.currentTarget.style.color = '#AEAEAE'}
+                    >
+                      创建卡牌
+                    </Link>
+                    <Link 
+                      to="/factions/manage" 
+                      className="block px-4 py-2 text-sm transition-colors duration-300"
+                      style={{ color: '#AEAEAE', fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif' }}
+                      onMouseEnter={(e) => e.currentTarget.style.color = '#FBFBFB'}
+                      onMouseLeave={(e) => e.currentTarget.style.color = '#AEAEAE'}
+                    >
+                      管理主战者
+                    </Link>
+                    <Link 
+                      to="/types/manage" 
+                      className="block px-4 py-2 text-sm transition-colors duration-300"
+                      style={{ color: '#AEAEAE', fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif' }}
+                      onMouseEnter={(e) => e.currentTarget.style.color = '#FBFBFB'}
+                      onMouseLeave={(e) => e.currentTarget.style.color = '#AEAEAE'}
+                    >
+                      管理类型
+                    </Link>
+                    <Link 
+                      to="/categories/manage" 
+                      className="block px-4 py-2 text-sm transition-colors duration-300"
+                      style={{ color: '#AEAEAE', fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif' }}
+                      onMouseEnter={(e) => e.currentTarget.style.color = '#FBFBFB'}
+                      onMouseLeave={(e) => e.currentTarget.style.color = '#AEAEAE'}
+                    >
+                      管理类别
+                    </Link>
+                    <Link 
+                      to="/settings/export" 
+                      className="block px-4 py-2 text-sm rounded-b-md transition-colors duration-300"
+                      style={{ color: '#AEAEAE', fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif' }}
+                      onMouseEnter={(e) => e.currentTarget.style.color = '#FBFBFB'}
+                      onMouseLeave={(e) => e.currentTarget.style.color = '#AEAEAE'}
+                    >
+                      数据导出
+                    </Link>
                   </div>
                 </div>
               )}
@@ -191,7 +187,7 @@ const Navbar: React.FC = () => {
                   <span style={{ color: '#AEAEAE' }}>
                     欢迎,<span className="">叙事人</span> <span className="font-semibold italic" style={{ color: '#AEAEAE' }}>{user.username}</span>
                     {user.isAdmin && (
-                      <span className="ml-2 px-2 py-1 bg-red-600 text-xs rounded-full" style={{ color: '#AEAEAE' }}>
+                      <span className="ml-2 px-2 py-1 text-xs rounded-full" style={{ backgroundColor: '#F07272', color: '#FBFBFB' }}>
                         管理员
                       </span>
                     )}
@@ -306,8 +302,8 @@ const Navbar: React.FC = () => {
                   规则书
                 </Link>
                 
-                {/* 管理设置 - 仅登录用户可见 */}
-                {user && (
+                {/* 管理设置 - 仅管理员可见 */}
+                {user?.isAdmin && (
                   <>
                     <div style={{ height: '1px', backgroundColor: '#C2B79C' }}></div>
                     <button
@@ -336,59 +332,54 @@ const Navbar: React.FC = () => {
                         >
                           批量导入卡牌
                         </Link>
-                        
-                        {user.isAdmin && (
-                          <>
-                            <Link 
-                              to="/heroes/batch-import" 
-                              className="block px-6 py-2 transition-colors duration-300 hover:bg-gray-600"
-                              style={{ color: '#AEAEAE', fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif', fontSize: '14px' }}
-                              onClick={() => setIsMobileMenuOpen(false)}
-                            >
-                              批量导入主战者
-                            </Link>
-                            <Link 
-                              to="/cards/create" 
-                              className="block px-6 py-2 transition-colors duration-300 hover:bg-gray-600"
-                              style={{ color: '#AEAEAE', fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif', fontSize: '14px' }}
-                              onClick={() => setIsMobileMenuOpen(false)}
-                            >
-                              创建卡牌
-                            </Link>
-                            <Link 
-                              to="/factions/manage" 
-                              className="block px-6 py-2 transition-colors duration-300 hover:bg-gray-600"
-                              style={{ color: '#AEAEAE', fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif', fontSize: '14px' }}
-                              onClick={() => setIsMobileMenuOpen(false)}
-                            >
-                              管理主战者
-                            </Link>
-                            <Link 
-                              to="/types/manage" 
-                              className="block px-6 py-2 transition-colors duration-300 hover:bg-gray-600"
-                              style={{ color: '#AEAEAE', fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif', fontSize: '14px' }}
-                              onClick={() => setIsMobileMenuOpen(false)}
-                            >
-                              管理类型
-                            </Link>
-                            <Link 
-                              to="/categories/manage" 
-                              className="block px-6 py-2 transition-colors duration-300 hover:bg-gray-600"
-                              style={{ color: '#AEAEAE', fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif', fontSize: '14px' }}
-                              onClick={() => setIsMobileMenuOpen(false)}
-                            >
-                              管理类别
-                            </Link>
-                            <Link 
-                              to="/settings/export" 
-                              className="block px-6 py-2 transition-colors duration-300 hover:bg-gray-600"
-                              style={{ color: '#AEAEAE', fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif', fontSize: '14px' }}
-                              onClick={() => setIsMobileMenuOpen(false)}
-                            >
-                              数据导出
-                            </Link>
-                          </>
-                        )}
+                        <Link 
+                          to="/heroes/batch-import" 
+                          className="block px-6 py-2 transition-colors duration-300 hover:bg-gray-600"
+                          style={{ color: '#AEAEAE', fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif', fontSize: '14px' }}
+                          onClick={() => setIsMobileMenuOpen(false)}
+                        >
+                          批量导入主战者
+                        </Link>
+                        <Link 
+                          to="/cards/create" 
+                          className="block px-6 py-2 transition-colors duration-300 hover:bg-gray-600"
+                          style={{ color: '#AEAEAE', fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif', fontSize: '14px' }}
+                          onClick={() => setIsMobileMenuOpen(false)}
+                        >
+                          创建卡牌
+                        </Link>
+                        <Link 
+                          to="/factions/manage" 
+                          className="block px-6 py-2 transition-colors duration-300 hover:bg-gray-600"
+                          style={{ color: '#AEAEAE', fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif', fontSize: '14px' }}
+                          onClick={() => setIsMobileMenuOpen(false)}
+                        >
+                          管理主战者
+                        </Link>
+                        <Link 
+                          to="/types/manage" 
+                          className="block px-6 py-2 transition-colors duration-300 hover:bg-gray-600"
+                          style={{ color: '#AEAEAE', fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif', fontSize: '14px' }}
+                          onClick={() => setIsMobileMenuOpen(false)}
+                        >
+                          管理类型
+                        </Link>
+                        <Link 
+                          to="/categories/manage" 
+                          className="block px-6 py-2 transition-colors duration-300 hover:bg-gray-600"
+                          style={{ color: '#AEAEAE', fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif', fontSize: '14px' }}
+                          onClick={() => setIsMobileMenuOpen(false)}
+                        >
+                          管理类别
+                        </Link>
+                        <Link 
+                          to="/settings/export" 
+                          className="block px-6 py-2 transition-colors duration-300 hover:bg-gray-600"
+                          style={{ color: '#AEAEAE', fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif', fontSize: '14px' }}
+                          onClick={() => setIsMobileMenuOpen(false)}
+                        >
+                          数据导出
+                        </Link>
                       </>
                     )}
                   </>
@@ -403,7 +394,7 @@ const Navbar: React.FC = () => {
                   <div className="mb-3" style={{ color: '#AEAEAE', fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif' }}>
                     欢迎，叙事人 {user.username}
                     {user.isAdmin && (
-                      <span className="ml-2 px-2 py-1 bg-red-600 text-xs rounded-full">
+                      <span className="ml-2 px-2 py-1 text-xs rounded-full" style={{ backgroundColor: '#F07272', color: '#FBFBFB' }}>
                         管理员
                       </span>
                     )}

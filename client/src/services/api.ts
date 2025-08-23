@@ -84,6 +84,8 @@ const apiWithMethods = Object.assign(api, {
     unfavorite: (id: string) => api.delete(`/decks/${id}/favorite`),
     getFavorites: () => api.get('/decks/favorites'),
     copy: (id: string) => api.post(`/decks/${id}/copy`),
+    recommend: (id: string, reason: string) => api.put(`/decks/${id}/recommend`, { reason }),
+    unrecommend: (id: string) => api.put(`/decks/${id}/unrecommend`),
   },
 
   // 房间相关API

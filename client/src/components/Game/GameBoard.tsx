@@ -887,7 +887,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, currentUserId, onGameA
             )}
           </div>
         )}
-        <div className="text-xs text-center mt-1 truncate">{card.effect || '无效果'}</div>
+        <div className="text-xs text-center mt-1 truncate whitespace-pre-wrap">{card.effect || '无效果'}</div>
 
 
 
@@ -1019,7 +1019,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, currentUserId, onGameA
                       攻: {card.attack} / 生命: {card.health}
                     </div>
                   )}
-                  <div className="text-xs text-center mt-1 truncate">{card.effect || '无效果'}</div>
+                  <div className="text-xs text-center mt-1 truncate whitespace-pre-wrap">{card.effect || '无效果'}</div>
                   
                   {/* 查看按钮 */}
                   <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
@@ -1708,13 +1708,13 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, currentUserId, onGameA
                 
                 <div className="bg-gray-700 rounded p-3">
                   <div className="text-white text-sm font-semibold mb-1">效果描述:</div>
-                  <div className="text-gray-300 text-sm">{viewingCard.effect || '无特殊效果'}</div>
+                  <div className="text-gray-300 text-sm whitespace-pre-wrap">{viewingCard.effect || '无特殊效果'}</div>
                 </div>
                 
                 {viewingCard.flavor && (
                   <div className="bg-gray-700 rounded p-3">
                     <div className="text-white text-sm font-semibold mb-1">背景故事:</div>
-                    <div className="text-gray-300 text-sm italic">{viewingCard.flavor}</div>
+                    <div className="text-gray-300 text-sm italic whitespace-pre-wrap">{viewingCard.flavor}</div>
                   </div>
                 )}
                 
@@ -1777,7 +1777,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, currentUserId, onGameA
                       攻: {card.attack} / 生命: {card.health}
                     </div>
                   )}
-                  <div className="text-xs text-center mt-1 truncate">{card.effect || '无效果'}</div>
+                  <div className="text-xs text-center mt-1 truncate whitespace-pre-wrap">{card.effect || '无效果'}</div>
                   
                   {/* 弃牌堆卡牌的按钮 */}
                   <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center space-x-1">
@@ -1984,7 +1984,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, currentUserId, onGameA
                         攻: {card.attack} / 生命: {card.health}
                       </div>
                     )}
-                    <div className="text-xs text-center mt-1 truncate">{card.effect || '无效果'}</div>
+                    <div className="text-xs text-center mt-1 truncate whitespace-pre-wrap">{card.effect || '无效果'}</div>
                     
                     {/* 选择按钮 */}
                     <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-wrap items-center justify-center gap-1 p-1">
@@ -2058,7 +2058,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, currentUserId, onGameA
                       攻: {card.attack} / 生命: {card.health}
                     </div>
                   )}
-                  <div className="text-xs text-center mt-1 truncate">{card.effect || '无效果'}</div>
+                  <div className="text-xs text-center mt-1 truncate whitespace-pre-wrap">{card.effect || '无效果'}</div>
                   
                   {/* 选择按钮 */}
                   <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
@@ -2176,7 +2176,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, currentUserId, onGameA
                       攻: {card.attack} / 生命: {card.health}
                     </div>
                   )}
-                  <div className="text-xs text-center mt-1 truncate">{card.effect || '无效果'}</div>
+                  <div className="text-xs text-center mt-1 truncate whitespace-pre-wrap">{card.effect || '无效果'}</div>
                   {selectedHandCards.includes(index) && (
                     <div className="text-center mt-2">
                       <span className="bg-white text-green-600 px-2 py-1 rounded text-xs font-semibold">已选中</span>
