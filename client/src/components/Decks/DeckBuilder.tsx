@@ -8,12 +8,14 @@ import { Card, Deck, DeckCard } from '../../types';
 import DeckForm from './DeckForm';
 import api from '../../services/api'; // Import api
 import SearchableSelect from '../common/SearchableSelect'; // Import SearchableSelect
+import { formatEffectText, TooltipState } from '../../utils/keywords';
 
 const DeckBuilder: React.FC = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingDeck, setEditingDeck] = useState<Deck | null>(null);
   const [viewingDeck, setViewingDeck] = useState<Deck | null>(null);
   const [showRecommendModal, setShowRecommendModal] = useState(false);
+  const [selectedCard, setSelectedCard] = useState<Card | null>(null);
   const [recommendingDeck, setRecommendingDeck] = useState<Deck | null>(null);
   const [recommendReason, setRecommendReason] = useState('');
   const [filter, setFilter] = useState({
@@ -69,6 +71,8 @@ const DeckBuilder: React.FC = () => {
   useEffect(() => {
     setCurrentPage(1);
   }, [filter, sortBy, sortDirection]);
+
+  
 
   // 点击外部关闭下拉菜单
   useEffect(() => {
@@ -281,28 +285,26 @@ const DeckBuilder: React.FC = () => {
         <div 
           className="relative w-full h-full rounded-2xl transition-all duration-500 ease-out transform-gpu"
           style={{
-            background: isOwned 
-              ? 'linear-gradient(135deg, rgba(79, 106, 141, 0.25) 0%, rgba(174, 174, 174, 0.15) 50%, rgba(145, 130, 115, 0.25) 100%)'
-              : 'linear-gradient(135deg, rgba(174, 174, 174, 0.12) 0%, rgba(194, 183, 156, 0.08) 50%, rgba(145, 130, 115, 0.12) 100%)',
-            backdropFilter: 'blur(20px)',
-            border: isOwned 
-              ? '2px solid rgba(79, 106, 141, 0.6)'
-              : '1px solid rgba(194, 183, 156, 0.3)',
+            background: 'linear-gradient(135deg, rgba(145, 130, 115, 0.25) 0%, rgba(63, 56, 50, 0.35) 50%, rgba(145, 130, 115, 0.25) 100%)',
+            backdropFilter: 'blur(8px)',
+            border: '1px solid rgba(194, 183, 156, 0.3)',
             boxShadow: isHovered 
-              ? '0 25px 50px -12px rgba(0, 0, 0, 0.6), 0 0 30px rgba(79, 106, 141, 0.3)'
-              : '0 10px 25px -5px rgba(0, 0, 0, 0.4)',
+              ? 'inset 0 0 25px rgba(194, 183, 156, 0.12), 0 6px 20px rgba(0,0,0,0.3)'
+              : 'inset 0 0 20px rgba(194, 183, 156, 0.08), 0 4px 15px rgba(0,0,0,0.2)',
             minHeight: '420px'
           }}
         >
-          {/* 背景装饰纹理 */}
+          {/* 噪点纹理层 */}
           <div 
-            className="absolute inset-0 rounded-2xl opacity-20"
+            className="absolute inset-0 rounded-2xl opacity-20 pointer-events-none"
             style={{
-              background: `
-                radial-gradient(circle at 20% 80%, rgba(194, 183, 156, 0.2) 0%, transparent 50%),
-                radial-gradient(circle at 80% 20%, rgba(145, 130, 115, 0.2) 0%, transparent 50%),
-                radial-gradient(circle at 40% 40%, rgba(79, 106, 141, 0.15) 0%, transparent 50%)
-              `
+              backgroundImage: `
+                radial-gradient(circle at 2px 1px, rgba(194, 183, 156, 0.1) 1px, transparent 0),
+                radial-gradient(circle at 5px 7px, rgba(194, 183, 156, 0.08) 1px, transparent 0),
+                radial-gradient(circle at 9px 3px, rgba(194, 183, 156, 0.06) 1px, transparent 0)
+              `,
+              backgroundSize: '12px 12px, 16px 16px, 20px 20px',
+              backgroundPosition: '0 0, 3px 3px, 6px 6px'
             }}
           />
 
@@ -1427,56 +1429,72 @@ const DeckBuilder: React.FC = () => {
                 onClick={() => setViewingDeck(null)}
          >
            <div 
-             className="rounded-2xl shadow-2xl p-8 max-w-7xl w-full h-[92vh] flex flex-col" 
+             className="rounded-2xl shadow-2xl p-8 max-w-full w-[98vw] h-[95vh] flex flex-col relative" 
              style={{ backgroundColor: '#3F3832' }}
              onClick={(e) => e.stopPropagation()}
            >
-             {/* 简洁标题栏 */}
-             <div className="flex justify-between items-center mb-6">
-               <div className="flex items-center space-x-4">
-                 <div>
-                   <h2 className="text-3xl font-bold mb-1" style={{ color: '#FBFBFB', fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif' }}>
-                     {viewingDeck.name}
-                   </h2>
-                   <p className="text-sm" style={{ color: '#AEAEAE' }}>
-                     创建者: {viewingDeck.createdBy.username}
-                   </p>
-                 </div>
-               </div>
-               <div className="flex items-center space-x-3">
-                 {/* 推荐标签 */}
-                 {viewingDeck.isRecommended && (
-                   <div className="flex items-center space-x-2 px-3 py-1 rounded-lg" style={{ backgroundColor: '#4F6A8D', color: '#FBFBFB' }}>
-                     <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: '#C2B79C' }}></div>
-                     <span className="text-sm font-medium">官方推荐</span>
-                   </div>
-                 )}
+             {/* 关闭按钮 */}
+             <button
+               onClick={() => setViewingDeck(null)}
+               className="absolute top-6 right-6 z-30 hover:scale-110 transition-transform duration-200"
+               style={{
+                 width: '28px',
+                 height: '28px',
+                 background: 'none',
+                 border: 'none',
+                 cursor: 'pointer'
+               }}
+             >
+               <svg 
+                 width="28" 
+                 height="28" 
+                 viewBox="0 0 1024 1024" 
+                 xmlns="http://www.w3.org/2000/svg"
+                 style={{
+                   fill: '#FBFBFB'
+                 }}
+               >
+                 <path d="M589.824 501.76L998.4 93.184c20.48-20.48 20.48-54.784 0-75.264l-2.048-2.048c-20.48-20.48-54.784-20.48-75.264 0L512.512 424.96 103.936 15.36c-20.48-20.48-54.784-20.48-75.264 0l-2.56 2.56C5.12 38.4 5.12 72.192 26.112 93.184L434.688 501.76 26.112 910.336c-20.48 20.48-20.48 54.784 0 75.264l2.048 2.048c20.48 20.48 54.784 20.48 75.264 0l408.576-408.576 408.576 408.576c20.48 20.48 54.784 20.48 75.264 0l2.048-2.048c20.48-20.48 20.48-54.784 0-75.264L589.824 501.76z" />
+               </svg>
+             </button>
 
-               </div>
+             {/* 居中标题栏 */}
+             <div className="flex flex-col items-center mb-6">
+               <h2 className="text-3xl font-bold mb-2" style={{ color: '#FBFBFB', fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif' }}>
+                 {viewingDeck.name}
+               </h2>
+               <p className="text-sm mb-3" style={{ color: '#AEAEAE' }}>
+                 创建者: {viewingDeck.createdBy.username}
+               </p>
+               
+               {/* 推荐标签 */}
+               {viewingDeck.isRecommended && (
+                 <div className="flex items-center space-x-2 px-3 py-1 rounded-lg" style={{ backgroundColor: '#4F6A8D', color: '#FBFBFB' }}>
+                   <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: '#C2B79C' }}></div>
+                   <span className="text-sm font-medium">官方推荐</span>
+                 </div>
+               )}
             </div>
 
             {/* 带星星的分割线 */}
             <div className="flex items-center justify-center mb-8">
               <div className="flex items-center">
                 <div className="h-px bg-gradient-to-r from-transparent via-[#C2B79C] to-transparent w-32"></div>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="mx-3">
-                  <path d="M12 2L15.09 8.26L22 9L17 14L18.18 21L12 17.77L5.82 21L7 14L2 9L8.91 8.26L12 2Z" fill="#C2B79C"/>
-                </svg>
+                <img src="/Icon/Star.svg" width="20" height="20" className="mx-3" style={{ filter: 'brightness(0) saturate(100%) invert(73%) sepia(13%) saturate(346%) hue-rotate(8deg) brightness(89%) contrast(89%)' }} alt="star" />
                 <div className="h-px bg-gradient-to-r from-transparent via-[#C2B79C] to-transparent w-32"></div>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="mx-3">
-                  <path d="M12 2L15.09 8.26L22 9L17 14L18.18 21L12 17.77L5.82 21L7 14L2 9L8.91 8.26L12 2Z" fill="#C2B79C"/>
-                </svg>
+                <img src="/Icon/Star.svg" width="20" height="20" className="mx-3" style={{ filter: 'brightness(0) saturate(100%) invert(73%) sepia(13%) saturate(346%) hue-rotate(8deg) brightness(89%) contrast(89%)' }} alt="star" />
                 <div className="h-px bg-gradient-to-r from-transparent via-[#C2B79C] to-transparent w-32"></div>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="mx-3">
-                  <path d="M12 2L15.09 8.26L22 9L17 14L18.18 21L12 17.77L5.82 21L7 14L2 9L8.91 8.26L12 2Z" fill="#C2B79C"/>
-                </svg>
+                <img src="/Icon/Star.svg" width="20" height="20" className="mx-3" style={{ filter: 'brightness(0) saturate(100%) invert(73%) sepia(13%) saturate(346%) hue-rotate(8deg) brightness(89%) contrast(89%)' }} alt="star" />
                 <div className="h-px bg-gradient-to-r from-transparent via-[#C2B79C] to-transparent w-32"></div>
               </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0">
               {/* 左侧：主角和基本信息 */}
-              <div className="flex flex-col space-y-4 overflow-y-auto pr-2">
+              <div 
+                className="flex flex-col space-y-4 overflow-y-auto pr-2 p-4 rounded-lg"
+                style={{ backgroundColor: 'rgba(0, 0, 0, 0.1)' }}
+              >
                 {viewingDeck.championCardId && (
                   <div>
                     <div className="w-full">
@@ -1489,6 +1507,13 @@ const DeckBuilder: React.FC = () => {
                           const championFaction = customFactions.find(f => f.id === viewingDeck.championCardId);
                           if (championFaction) {
                             setSelectedChampion(championFaction);
+                          } else if (viewingDeck.championCardId) {
+                            // 如果找不到customFactions中的数据，创建一个临时对象用于显示
+                            setSelectedChampion({
+                              id: viewingDeck.championCardId,
+                              name: viewingDeck.championCardId,
+                              description: viewingDeck.championDescription || '暂无详细描述'
+                            });
                           }
                         }}
                       >
@@ -1528,7 +1553,7 @@ const DeckBuilder: React.FC = () => {
                                 }}>
                           {(() => {
                             const championFaction = customFactions.find(f => f.id === viewingDeck.championCardId);
-                                const name = championFaction ? championFaction.name : viewingDeck.championCardId;
+                                const name = championFaction ? championFaction.name : (viewingDeck.championCardId || '未知主角');
                                 return name.replace(/\[.*?\]/g, '').trim();
                           })()}
                             </h3>
@@ -1543,7 +1568,7 @@ const DeckBuilder: React.FC = () => {
                                  }}>
                               {(() => {
                                 const championFaction = customFactions.find(f => f.id === viewingDeck.championCardId);
-                                const name = championFaction ? championFaction.name : viewingDeck.championCardId;
+                                const name = championFaction ? championFaction.name : (viewingDeck.championCardId || '');
                                 return name.includes('[') && name.includes(']') 
                                   ? name.match(/\[(.*?)\]/)?.[1] 
                                   : '';
@@ -1569,7 +1594,7 @@ const DeckBuilder: React.FC = () => {
                           {(() => {
                             const championFaction = customFactions.find(f => f.id === viewingDeck.championCardId);
                             return viewingDeck.championDescription || 
-                                   (championFaction ? championFaction.description : null) || 
+                                   (championFaction?.description) || 
                                        '暂无详细描述';
                           })()}
                             </div>
@@ -1685,7 +1710,8 @@ const DeckBuilder: React.FC = () => {
               </div>
 
               {/* 右侧：卡牌列表和费用分布 */}
-              <div className="lg:col-span-2 flex flex-col min-h-0">
+              <div className="lg:col-span-2 flex min-h-0 gap-6">
+                {/* 卡牌列表部分 */}
                 <div className="flex-1 flex flex-col">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-xl font-bold" style={{ color: '#FBFBFB', fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif' }}>
@@ -1699,17 +1725,18 @@ const DeckBuilder: React.FC = () => {
                   {/* 简单分割线 */}
                   <div className="h-px bg-gradient-to-r from-transparent via-[#C2B79C] to-transparent mb-6"></div>
                 <div 
-                  className="grid grid-cols-3 justify-items-center gap-x-4 overflow-y-auto mb-6 deck-card-list-scroll"
+                  className="grid grid-cols-2 justify-items-center gap-x-4 overflow-y-auto deck-card-list-scroll p-4 rounded-lg"
                   style={{ 
                     height: '585px',
                     scrollbarWidth: 'none',
-                    msOverflowStyle: 'none'
+                    msOverflowStyle: 'none',
+                    backgroundColor: 'rgba(0, 0, 0, 0.1)'
                   }}
                 >
                   {viewingDeck.cards.map((deckCard, index) => (
-                    <div key={index} className="relative cursor-pointer group" style={{ marginBottom: '-20px' }}>
+                    <div key={index} className="relative cursor-pointer group" style={{ marginBottom: '-20px' }} onClick={() => setSelectedCard(deckCard.card)}>
                       <div
-                        className="relative rounded-xl p-8 shadow-lg border border-opacity-20 border-white backdrop-blur-sm overflow-hidden"
+                        className="relative rounded-xl p-8 shadow-lg border border-opacity-20 border-white backdrop-blur-sm overflow-hidden hover:shadow-xl hover:border-opacity-40 transition-all duration-300"
                         style={{
                           width: '288px',
                           height: '403px',
@@ -2058,20 +2085,28 @@ const DeckBuilder: React.FC = () => {
                     </div>
                   ))}
                 </div>
+                </div>
 
-                {/* 费用分布图 - 横版 */}
+                {/* 费用分布部分 */}
+                <div className="w-80 flex-shrink-0">
                   <div 
-                    className="p-6 rounded-lg backdrop-blur-md border border-opacity-20 border-white"
+                    className="p-6 rounded-lg backdrop-blur-md border border-opacity-20 border-white h-full"
                     style={{
                       background: 'linear-gradient(135deg, rgba(194, 183, 156, 0.1) 0%, rgba(251, 251, 251, 0.05) 100%)',
                       backdropFilter: 'blur(10px)',
                       boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
                     }}
                   >
-                    <h3 className="text-xl font-bold mb-4" style={{ color: '#FBFBFB', fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif' }}>
+                    <h3 className="text-xl font-bold mb-3" style={{ color: '#FBFBFB', fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif' }}>
                       费用分布
                     </h3>
-                    <div className="flex items-end justify-between space-x-1 h-32 px-2">
+                    
+                    {/* 装饰线 */}
+                    <div className="flex items-center justify-center mb-4">
+                      <div className="h-px bg-gradient-to-r from-transparent via-[#C2B79C] to-transparent w-full"></div>
+                    </div>
+                    
+                    <div className="space-y-2">
                     {(() => {
                       // 计算各个费用的卡牌数量
                       const costDistribution: { [key: string]: number } = { '0': 0, '1': 0, '2': 0, '3': 0, '4': 0, '5': 0, '6': 0, '7': 0, '8': 0, '9': 0, 'X': 0 };
@@ -2086,40 +2121,43 @@ const DeckBuilder: React.FC = () => {
                       const maxCount = Math.max(...Object.values(costDistribution));
                       
                       return Object.entries(costDistribution).map(([cost, count]) => (
-                        <div key={cost} className="flex flex-col items-center flex-1">
-                            {/* 数量显示 */}
-                          <div 
-                              className="text-xs font-bold mb-1 transition-all duration-300"
-                            style={{ 
-                                color: count > 0 ? '#C2B79C' : 'transparent',
-                                fontFamily: 'Zoika-2, sans-serif',
-                                minHeight: '16px'
-                              }}
-                            >
-                              {count > 0 ? count : ''}
-                            </div>
-                            
-                            {/* 柱状图 */}
-                            <div 
-                              className="transition-all duration-500 ease-out"
-                              style={{
-                                width: '100%',
-                                height: maxCount > 0 ? `${Math.max((count / maxCount) * 100, count > 0 ? 12 : 0)}px` : '0px',
-                                backgroundColor: count > 0 ? '#918273' : 'transparent',
-                                boxShadow: count > 0 ? '0 2px 8px rgba(145, 130, 115, 0.3)' : 'none'
-                              }}
-                            />
-                            
+                        <div key={cost} className="flex items-center justify-between">
+                          <div className="flex items-center">
                             {/* 费用标签 */}
                             <div 
-                              className="text-xs mt-2 font-medium"
+                              className="text-lg font-bold mr-3 flex justify-center"
                               style={{ 
                                 color: '#FBFBFB',
-                                fontFamily: 'Zoika-2, sans-serif'
+                                fontFamily: 'Zoika-2, sans-serif',
+                                width: '24px'
                               }}
                             >
                               {cost}
                             </div>
+                            
+                            {/* 横向柱状图 */}
+                            <div 
+                              className="transition-all duration-500 ease-out rounded-sm"
+                              style={{
+                                width: maxCount > 0 ? `${Math.max((count / maxCount) * 180, count > 0 ? 16 : 0)}px` : '0px',
+                                height: '18px',
+                                backgroundColor: count > 0 ? '#918273' : 'transparent',
+                                boxShadow: count > 0 ? '0 2px 8px rgba(145, 130, 115, 0.3)' : 'none'
+                              }}
+                            />
+                          </div>
+                          
+                          {/* 数量显示 */}
+                          <div 
+                            className="text-sm font-bold transition-all duration-300 ml-3 flex justify-end"
+                            style={{ 
+                              color: count > 0 ? '#C2B79C' : 'transparent',
+                              fontFamily: 'Zoika-2, sans-serif',
+                              width: '32px'
+                            }}
+                          >
+                            {count > 0 ? count : ''}
+                          </div>
                         </div>
                       ));
                     })()}
@@ -2208,6 +2246,14 @@ const DeckBuilder: React.FC = () => {
         <ChampionDetailModal 
           champion={selectedChampion} 
           onClose={() => setSelectedChampion(null)}
+        />
+      )}
+
+      {/* 卡牌详情弹窗 */}
+      {selectedCard && (
+        <CardDetailModal 
+          card={selectedCard} 
+          onClose={() => setSelectedCard(null)}
         />
       )}
     </div>
@@ -2541,6 +2587,480 @@ const ChampionDetailModal: React.FC<{ champion: any; onClose: () => void }> = ({
             </button>
           )}
         </div>
+
+
+      </div>
+    </div>
+  );
+};
+
+// 卡牌详情弹窗组件
+const CardDetailModal: React.FC<{ 
+  card: Card; 
+  onClose: () => void;
+}> = ({ card, onClose }) => {
+  const cardBackground = getCardBackground(card.type);
+  const [detailTooltip, setDetailTooltip] = useState<TooltipState>({
+    isVisible: false,
+    content: '',
+    position: { x: 0, y: 0 }
+  });
+  
+  return (
+    <div 
+      className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4"
+      onClick={onClose}
+    >
+      {/* 详情弹窗专用提示框 */}
+      {detailTooltip.isVisible && (
+        <div 
+          className="fixed z-[9999] px-3 py-2 text-sm rounded-lg shadow-lg border pointer-events-none"
+          style={{
+            backgroundColor: '#2A2A2A',
+            color: '#FBFBFB',
+            borderColor: '#4F6A8D',
+            left: detailTooltip.position.x,
+            top: detailTooltip.position.y,
+            maxWidth: '300px',
+            whiteSpace: 'pre-wrap',
+            transform: 'translateX(-50%)'
+          }}
+        >
+          {detailTooltip.content}
+          <div 
+            className="absolute w-2 h-2 transform rotate-45"
+            style={{
+              backgroundColor: '#2A2A2A',
+              borderColor: '#4F6A8D',
+              borderLeft: '1px solid',
+              borderBottom: '1px solid',
+              left: '50%',
+              top: '100%',
+              marginLeft: '-4px',
+              marginTop: '-1px'
+            }}
+          />
+        </div>
+      )}
+      <div 
+        className="relative flex flex-col items-center"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-center gap-8">
+          {/* 卡片容器 - 和预览卡片相同的结构，放大1.7倍 */}
+        <div
+          className="relative rounded-xl shadow-2xl border border-opacity-20 border-white backdrop-blur-sm overflow-hidden card-detail-modal"
+          style={{
+            width: '490px', // 288 * 1.7
+            height: '685px', // 403 * 1.7
+            padding: '54px' // 32px * 1.7
+          }}
+        >
+          {/* 关闭按钮 */}
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 z-30 hover:scale-110 transition-transform duration-200"
+            style={{
+              width: '24px',
+              height: '24px',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer'
+            }}
+          >
+            <svg 
+              width="24" 
+              height="24" 
+              viewBox="0 0 1024 1024" 
+              xmlns="http://www.w3.org/2000/svg"
+              style={{
+                fill: '#FBFBFB'
+              }}
+            >
+              <path d="M589.824 501.76L998.4 93.184c20.48-20.48 20.48-54.784 0-75.264l-2.048-2.048c-20.48-20.48-54.784-20.48-75.264 0L512.512 424.96 103.936 15.36c-20.48-20.48-54.784-20.48-75.264 0l-2.56 2.56C5.12 38.4 5.12 72.192 26.112 93.184L434.688 501.76 26.112 910.336c-20.48 20.48-20.48 54.784 0 75.264l2.048 2.048c20.48 20.48 54.784 20.48 75.264 0l408.576-408.576 408.576 408.576c20.48 20.48 54.784 20.48 75.264 0l2.048-2.048c20.48-20.48 20.48-54.784 0-75.264L589.824 501.76z" />
+            </svg>
+          </button>
+          {/* 卡图背景层 */}
+          <div 
+            className="absolute inset-0 z-0"
+            style={{
+              backgroundImage: `url(${cardBackground})`,
+              backgroundSize: '100% 100%',
+              backgroundPosition: 'center',
+              backgroundRepeat: 'no-repeat'
+            }}
+          ></div>
+          
+          {/* 默认卡图层 */}
+          <div 
+            className="absolute"
+            style={{
+              backgroundImage: 'url(/Cardborder/defaultpic.png)',
+              backgroundSize: '70%',
+              backgroundPosition: 'center',
+              backgroundRepeat: 'no-repeat',
+              bottom: '150px', // 102px + 200px (向上移动)
+              right: '-35px', // 25px + 100px (向左移动)
+              width: '460px',
+              height: '460px',
+              zIndex: -10
+            }}
+          ></div>
+          
+          {/* 内容层 */}
+          <div className="relative z-10 h-full flex flex-col">
+            {/* 数值显示 - 左上角 */}
+            <div className="absolute flex flex-col space-y-2" style={{ 
+              top: card.type === '关键字效果' ? '25px' : '-13px', 
+              left: card.type === '关键字效果' ? '11px' : '22px' 
+            }}>
+              {/* 费用 */}
+              <div 
+                style={{ 
+                  position: 'relative',
+                  top: card.type === '配角牌' ? '-7px' : 
+                       (card.type === '主角牌' || card.type === '故事牌') ? '23px' : // 再往下5px (18px -> 23px)
+                       card.type === '关键字效果' ? '-14px' : '-7px', // 往上2px (-12px -> -14px)
+                  left: card.type === '配角牌' ? '-5px' : 
+                        (card.type === '主角牌' || card.type === '故事牌') ? '-17px' : // 再往左5px (-12px -> -17px)
+                        card.type === '关键字效果' ? '-6px' : '-2px' // 往左1px (-5px -> -6px)
+                }}
+              >
+                {(() => {
+                  const cost = card.cost;
+                  const numbersAndOtherSymbols = cost.replace(/\*/g, ''); // 数字和非*特殊字符一起显示
+                  const asterisks = cost.match(/\*/g)?.join('') || ''; // 只提取*符号
+                  
+                  return (
+                    <>
+                      {/* 数字和其他特殊字符部分 */}
+                      <span 
+                        style={{ 
+                          fontFamily: 'Zoika-2, sans-serif',
+                          fontSize: numbersAndOtherSymbols.length >= 2 ? '39px' : '44px', // 两位数小三号字
+                          fontWeight: 'bold',
+                          color: (card.type === '故事牌' || card.type === '关键字效果') ? '#424453' : '#debf97',
+                          textShadow: '1px 0 0 #ffffff, -1px 0 0 #ffffff, 0 1px 0 #ffffff, 0 -1px 0 #ffffff', // 白色1px描边
+                          position: 'relative',
+                          left: numbersAndOtherSymbols.length >= 2 ? '-8px' : '0px', // 两位数往左8px
+                          top: numbersAndOtherSymbols.length >= 2 ? '3px' : '0px' // 两位数往下3px
+                        }}
+                      >
+                        {numbersAndOtherSymbols}
+                      </span>
+                      {/* *符号部分 - 单独定位 */}
+                      {asterisks && (
+                        <span 
+                          style={{ 
+                            fontFamily: 'Zoika-2, sans-serif',
+                            fontSize: '32px',
+                            fontWeight: 'bold',
+                            color: (card.type === '故事牌' || card.type === '关键字效果') ? '#424453' : '#debf97',
+                            textShadow: '1px 0 0 #ffffff, -1px 0 0 #ffffff, 0 1px 0 #ffffff, 0 -1px 0 #ffffff', // 白色1px描边
+                            position: 'relative',
+                            top: '-5px',
+                            left: '2px'
+                          }}
+                        >
+                          {asterisks}
+                        </span>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
+              
+              {/* 攻击和生命（仅配角牌显示） */}
+              {getCardBackground(card.type).includes('SubcharC') && (
+                <>
+                  <div 
+                    style={{ 
+                      fontFamily: 'Zoika-2, sans-serif',
+                      fontSize: (card.attack?.toString().length ?? 0) >= 2 ? '39px' : '41px', // 两位数下调2px
+                      fontWeight: 'bold',
+                      color: '#4e4a44',
+                      textShadow: '1px 0 0 #ffffff, -1px 0 0 #ffffff, 0 1px 0 #ffffff, 0 -1px 0 #ffffff', // 白色1px描边
+                      position: 'relative',
+                      left: (card.attack?.toString().length ?? 0) >= 2 ? '-43px' : '-34px', // 两位数往左9px
+                      top: (() => {
+                        const costIsTwo = card.cost.replace(/\*/g, '').length >= 2; // 费用是否两位数
+                        const attackIsTwo = (card.attack?.toString().length ?? 0) >= 2; // 攻击是否两位数
+                        let topValue = -16; // 基础位置
+                        if (costIsTwo) topValue += 5; // 费用两位数往下5px
+                        if (attackIsTwo) topValue += 5; // 攻击两位数往下5px (2+3)
+                        return `${topValue}px`;
+                      })()
+                    }}
+                  >
+                    {card.attack}
+                  </div>
+                  <div 
+                    style={{ 
+                      fontFamily: 'Zoika-2, sans-serif',
+                      fontSize: (card.health?.toString().length ?? 0) >= 2 ? '39px' : '41px', // 两位数下调2px
+                      fontWeight: 'bold',
+                      color: '#c78151',
+                      textShadow: '1px 0 0 #ffffff, -1px 0 0 #ffffff, 0 1px 0 #ffffff, 0 -1px 0 #ffffff', // 白色1px描边
+                      position: 'relative',
+                      left: (card.health?.toString().length ?? 0) >= 2 ? '-21px' : '-12px', // 两位数往左9px
+                      top: (() => {
+                        const costIsTwo = card.cost.replace(/\*/g, '').length >= 2; // 费用是否两位数
+                        const healthIsTwo = (card.health?.toString().length ?? 0) >= 2; // 生命是否两位数
+                        let topValue = -31; // 基础位置
+                        if (costIsTwo) topValue += 5; // 费用两位数往下5px
+                        if (healthIsTwo) topValue += 5; // 生命两位数往下5px (2+3)
+                        return `${topValue}px`;
+                      })()
+                    }}
+                  >
+                    {card.health}
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* 卡牌名称 */}
+            <div className="text-center mb-4" style={{ marginTop: '-15px', marginLeft: '86px' }}>
+              {/* 主标题在上面 */}
+              <h3 style={{ 
+                fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif',
+                fontSize: '25px',
+                color: '#282A3A',
+                marginTop: '-2px', // 从0px改为-2px，往上移动2px
+                fontWeight: '500',
+                textShadow: '1px 0 0 white, -1px 0 0 white, 0 1px 0 white, 0 -1px 0 white' // 1px白色描边
+              }}>
+                {(() => {
+                  let displayName = card.name.replace(/\[.*?\]/g, '').trim();
+                  // 如果是关键字效果牌，去掉【关键字】部分
+                  if (card.type === '关键字效果') {
+                    displayName = displayName.replace(/【关键字】/g, '');
+                  }
+                  // 去掉【特殊机制】部分
+                  displayName = displayName.replace(/【特殊机制】/g, '');
+                  // 去掉【衍生牌】部分
+                  displayName = displayName.replace(/【衍生牌】/g, '');
+                  // 符号替换为阴角符号
+                  return displayName
+                    .replace(/\./g, '·')  // 点号替换为·
+                    .replace(/\(/g, '「')  // 左括号替换为「
+                    .replace(/\)/g, '」')  // 右括号替换为」
+                    .replace(/\[/g, '【')  // 左方括号替换为【
+                    .replace(/\]/g, '】')  // 右方括号替换为】
+                    .replace(/\{/g, '〖')  // 左大括号替换为〖
+                    .replace(/\}/g, '〗')  // 右大括号替换为〗
+                    .replace(/</g, '〈')   // 小于号替换为〈
+                    .replace(/>/g, '〉')   // 大于号替换为〉
+                    .replace(/"/g, '『')   // 双引号替换为『
+                    .replace(/'/g, '『')   // 单引号替换为『
+                    .replace(/:/g, '：')   // 冒号替换为：
+                    .replace(/;/g, '；')   // 分号替换为；
+                    .replace(/!/g, '！')   // 感叹号替换为！
+                    .replace(/\?/g, '？'); // 问号替换为？
+                })()}
+              </h3>
+              {/* 提取[]内容作为副标题 - 现在在主标题下面 */}
+              <div style={{ 
+                fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif',
+                minHeight: '24px',
+                color: '#282A3A',
+                marginTop: '-5px',
+                marginBottom: '12px',
+                fontSize: '18px' // 12px * 1.7
+              }}>
+                {card.name.includes('[') && card.name.includes(']') 
+                  ? card.name.match(/\[(.*?)\]/)?.[1] 
+                  : ''}
+              </div>
+            </div>
+
+            {/* 卡牌类型 - 纵向显示 */}
+            <div className="absolute" style={{ 
+              top: card.type === '关键字效果' ? '264px' : '283px', 
+              left: '-9px' 
+            }}>
+              {(() => {
+                const type = card.type as string;
+                let displayText = '';
+                // 如果是故事牌或关键字效果，显示详细分类
+                if (type === '故事牌' || type === 'story' || type === '关键字效果') {
+                  displayText = card.category || (type === '关键字效果' ? '关键字' : '故事');
+                } else {
+                  switch (type) {
+                    case 'character': displayText = '配角'; break;
+                    case 'hero': displayText = '主角'; break;
+                    case '配角牌': displayText = '配角'; break;
+                    case '主角牌': displayText = '主角'; break;
+                    default: displayText = type.replace('牌', '');
+                  }
+                }
+                
+                // 如果超过3个字，使用较小字体和调整位置
+                const isLongText = displayText.length > 3;
+                
+                return (
+                  <div 
+                    style={{ 
+                      fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif',
+                      fontSize: isLongText ? '22px' : '31px', // 超过3个字的字体再小2px (24px -> 22px)
+                      color: '#282A3A',
+                      writingMode: 'vertical-rl',
+                      textOrientation: 'upright',
+                      letterSpacing: '2px',
+                      position: 'relative',
+                      left: isLongText ? '8px' : '0px', // 超过3个字的往右8px (6px + 2px)
+                      top: isLongText ? '3px' : '0px' // 3个字的往上2px (2px -> 0px)，超过3个字的保持3px
+                    }}
+                  >
+                    {displayText}
+                  </div>
+                );
+              })()}
+            </div>
+            
+            {/* 提取标题中【】内容显示 - 不适用于关键字牌 */}
+            {(() => {
+              // 排除关键字牌
+              if (card.type === '关键字效果') {
+                return null;
+              }
+              
+              const bracketMatch = card.name.match(/【(.*?)】/);
+              if (bracketMatch) {
+                return (
+                  <div style={{
+                    position: 'absolute',
+                    left: '50%',
+                    top: 'calc(50% + 85px)',
+                    transform: 'translate(-50%, -50%)',
+                    fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif',
+                    fontSize: '12px',
+                    color: '#282A3A',
+                    textShadow: '1px 0 0 white, -1px 0 0 white, 0 1px 0 white, 0 -1px 0 white',
+                    letterSpacing: '0px',
+                    lineHeight: '1'
+                  }}>
+                    {bracketMatch[1]}
+                  </div>
+                );
+              }
+              return null;
+            })()}
+
+            {/* 详情、风味文字、创建者信息的容器 */}
+            <div className="text-center overflow-y-auto" style={{ 
+              marginTop: '334px', 
+              height: '150px',
+              scrollbarWidth: 'thin',
+              scrollbarColor: '#918273 transparent'
+            }}>
+              {/* 卡牌效果描述 */}
+              <div className="flex justify-center" style={{ marginBottom: '10px', marginTop: '5px' }}>
+                <div 
+                  className="text-lg leading-relaxed"
+                  style={{ 
+                    color: '#111111',
+                    textShadow: '1px 1px 2px rgba(255,255,255,0.8)',
+                    width: '340px',
+                    padding: '5px'
+                  }}
+                >
+                  {card.effect ? (
+                    <div className="whitespace-pre-wrap">
+                      {card.effect.split('*').map((part, index) => {
+                        if (index === 0) {
+                          return <span key={index}>{formatEffectText(part, setDetailTooltip)}</span>;
+                        } else {
+                          return (
+                            <div key={index}>
+                              <span style={{ fontStyle: 'italic' }}>*{formatEffectText(part, setDetailTooltip)}</span>
+                            </div>
+                          );
+                        }
+                      })}
+                    </div>
+                  ) : (
+                    '暂无效果描述'
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* 底部卡牌信息 - 相对于整个卡片容器定位 - 只有非主角牌且非关键字效果才显示 */}
+            {card.type !== '主角牌' && card.type !== '关键字效果' && card.faction && (
+              <div className="absolute left-0 right-0 text-center" style={{ bottom: '-53px' }}>
+                {/* 主角名字 */}
+                <div style={{ 
+                  fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif',
+                  fontSize: '24px', // 14px * 1.7
+                  color: '#FBFBFB',
+                  textShadow: '0 5px 0 #282A3A, 1px 0 0 #282932, -1px 0 0 #282932, 0 1px 0 #282932, 0 -1px 0 #282932', // 0 3px 0 * 1.7
+                  marginBottom: '-3px' // -2px * 1.7
+                }}>
+                  {(() => {
+                    // 直接使用card.faction，去掉[]部分显示主角名
+                    const factionName = card.faction.replace(/\[.*?\]/g, '').trim();
+                    return factionName;
+                  })()}
+                </div>
+                
+                {/* faction中[]内容作为副标题 */}
+                {card.faction.includes('[') && card.faction.includes(']') && (
+                  <div style={{ 
+                    fontFamily: 'QingNiaoHuaGuangYaoTi, sans-serif',
+                    fontSize: '17px', // 10px * 1.7
+                    color: '#FBFBFB',
+                    textShadow: '0 5px 0 #282A3A, 1px 0 0 #282932, -1px 0 0 #282932, 0 1px 0 #282932, 0 -1px 0 #282932', // 0 3px 0 * 1.7
+                    marginBottom: '3px' // 2px * 1.7
+                  }}>
+                    {card.faction.match(/\[(.*?)\]/)?.[1]}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+        
+        {/* 右侧风味文字区域 */}
+        {card.flavor && (
+          <div className="flex flex-col justify-center" style={{ width: '300px', height: '685px' }}>
+            <div className="p-6" style={{ 
+              backgroundColor: 'rgba(0, 0, 0, 0.3)',
+              backdropFilter: 'blur(10px)',
+              border: '1px solid rgba(255, 255, 255, 0.1)'
+            }}>
+              {/* 上分割线 */}
+              <div style={{
+                width: '100%',
+                height: '1px',
+                backgroundColor: '#C2B79C',
+                marginBottom: '16px'
+              }}></div>
+              
+              <div 
+                className="leading-relaxed text-center whitespace-pre-wrap"
+                style={{ 
+                  color: '#FBFBFB', 
+                  fontSize: '16px',
+                  lineHeight: '1.8',
+                  fontFamily: 'KaiTi, STKaiti, "华文楷体", serif'
+                }}
+              >
+                {card.flavor || '没有风味文字'}
+              </div>
+              
+              {/* 下分割线 */}
+              <div style={{
+                width: '100%',
+                height: '1px',
+                backgroundColor: '#C2B79C',
+                marginTop: '16px'
+              }}></div>
+            </div>
+          </div>
+        )}
+        </div>
+
       </div>
     </div>
   );

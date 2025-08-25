@@ -16,6 +16,7 @@ const RoomList: React.FC = () => {
   const [showSpectatorsModal, setShowSpectatorsModal] = useState(false);
   const [selectedRoomSpectators, setSelectedRoomSpectators] = useState<any[]>([]);
   const [selectedRoomName, setSelectedRoomName] = useState('');
+  const [hoveredRoomId, setHoveredRoomId] = useState<string | null>(null);
 
   useEffect(() => {
     dispatch(fetchRooms() as any);
@@ -88,17 +89,7 @@ const RoomList: React.FC = () => {
     setSelectedRoomName('');
   };
 
-  const formatSpectatorNames = (spectators: any[]) => {
-    if (!spectators || spectators.length === 0) {
-      return '暂无观战';
-    }
-    
-    const names = spectators.map(s => s.username).join('、');
-    if (names.length > 10) {
-      return names.substring(0, 10) + '...';
-    }
-    return names;
-  };
+
 
   if (isLoading) {
     return (
@@ -170,10 +161,38 @@ const RoomList: React.FC = () => {
         <p className="italic" style={{ color: '#AEAEAE' }}>当前房间数量: {rooms.length}</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {rooms.map((room) => (
-          <div key={room._id} className="rounded-xl p-4 transition-all" style={{ backgroundColor: '#414141' }}>
-            <div className="flex justify-between items-start mb-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {rooms.map((room) => {
+          const isHovered = hoveredRoomId === room._id;
+          return (
+            <div 
+              key={room._id} 
+              className="rounded-xl p-4 transition-all backdrop-blur-md border border-opacity-20 border-white relative overflow-hidden cursor-pointer" 
+              onMouseEnter={() => setHoveredRoomId(room._id)}
+              onMouseLeave={() => setHoveredRoomId(null)}
+              style={{
+                background: 'linear-gradient(135deg, rgba(145, 130, 115, 0.25) 0%, rgba(63, 56, 50, 0.35) 50%, rgba(145, 130, 115, 0.25) 100%)',
+                backdropFilter: 'blur(8px)',
+                boxShadow: isHovered 
+                  ? 'inset 0 0 25px rgba(194, 183, 156, 0.12), 0 6px 20px rgba(0,0,0,0.3)'
+                  : 'inset 0 0 20px rgba(194, 183, 156, 0.08), 0 4px 15px rgba(0,0,0,0.2)',
+              }}
+            >
+            {/* 噪点纹理层 */}
+            <div 
+              className="absolute inset-0 opacity-20 pointer-events-none"
+              style={{
+                backgroundImage: `
+                  radial-gradient(circle at 2px 1px, rgba(194, 183, 156, 0.1) 1px, transparent 0),
+                  radial-gradient(circle at 5px 7px, rgba(194, 183, 156, 0.08) 1px, transparent 0),
+                  radial-gradient(circle at 9px 3px, rgba(194, 183, 156, 0.06) 1px, transparent 0)
+                `,
+                backgroundSize: '12px 12px, 16px 16px, 20px 20px',
+                backgroundPosition: '0 0, 3px 3px, 6px 6px'
+              }}
+            />
+            
+            <div className="flex justify-between items-start mb-2 relative z-10">
               <div className="flex-1">
                 <span 
                   className="px-2 py-1 rounded text-xs inline-block mb-2"
@@ -248,12 +267,11 @@ const RoomList: React.FC = () => {
               {/* 观战人信息 */}
               <div className="border-t border-gray-600 mt-3 pt-3">
                 <div className="flex justify-between items-center text-sm">
-                  <span>观战人</span>
-                  <span>{room.spectators?.length || 0}人</span>
-                </div>
-                <div className="flex justify-between items-center mt-2">
-                  <span className="text-xs truncate flex-1" style={{ color: '#CCCCCC' }}>
-                    {formatSpectatorNames(room.spectators)}
+                  <span>
+                    {room.spectators && room.spectators.length > 0 
+                      ? `观战人 ${room.spectators.length}人` 
+                      : '暂无观战'
+                    }
                   </span>
                   {room.spectators && room.spectators.length > 0 && (
                     <button
@@ -261,7 +279,7 @@ const RoomList: React.FC = () => {
                         e.stopPropagation();
                         handleViewSpectators(room);
                       }}
-                      className="ml-2 px-2 py-1 text-xs rounded transition-colors hover:bg-gray-600"
+                      className="px-2 py-1 text-xs rounded transition-colors hover:bg-gray-600"
                       style={{ color: '#4F6A8D', backgroundColor: 'transparent' }}
                     >
                       查看
@@ -296,7 +314,8 @@ const RoomList: React.FC = () => {
               </button>
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {rooms.length === 0 && !isLoading && (

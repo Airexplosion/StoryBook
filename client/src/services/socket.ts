@@ -22,7 +22,7 @@ class SocketService {
         const hostname = window.location.hostname;
         // 如果是localhost环境，直接使用localhost和端口
         if (hostname === 'localhost' || hostname === '127.0.0.1') {
-          const port = '5000'; // 后端默认端口
+          const port = '3001'; // 后端默认端口
           return `${protocol}://${hostname}:${port}`;
         }
         

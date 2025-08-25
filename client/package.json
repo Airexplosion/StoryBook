@@ -18,8 +18,8 @@
     "web-vitals": "^2.1.4"
   },
   "scripts": {
-    "start": "set port=3015&&craco start",
-    "build": "set port=3015&&craco build",
+    "start": "PORT=3015 craco start",
+    "build": "PORT=3015 craco build",
     "test": "craco test",
     "eject": "react-scripts eject"
   },
@@ -47,5 +47,5 @@
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.17"
   },
-  "proxy": "http://localhost:5000"
+  "proxy": "http://localhost:3001"
 }

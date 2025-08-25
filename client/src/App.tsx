@@ -21,6 +21,7 @@ import TypeManagement from './components/Settings/TypeManagement';
 import CategoryManagement from './components/Settings/CategoryManagement';
 import CreateCard from './components/Cards/CreateCard';
 import DataExport from './components/Settings/DataExport';
+import RuleBook from './components/Rules/RuleBook';
 import { ColorProvider, useColor } from './contexts/ColorContext';
 import ColorSettings from './components/Settings/ColorSettings';
 import './index.css';
@@ -139,6 +140,10 @@ const AppContent: React.FC = () => {
           <Route 
             path="/test" 
             element={<TestPage />} 
+          />
+          <Route 
+            path="/rules" 
+            element={user ? <RuleBook /> : <Navigate to="/login" />} 
           />
         </Routes>
       </main>

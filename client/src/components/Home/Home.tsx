@@ -87,6 +87,22 @@ const Home: React.FC = () => {
             <p><strong style={{ color: '#AEAEAE' }}>卡组构建：</strong>每个卡组包含40张卡牌，同名卡牌最多3张</p>
           </div>
         </div>
+
+        {/* 官方信息 */}
+        <div className="text-center py-4 mt-8">
+          <div className="text-sm italic" style={{ color: '#AEAEAE' }}>
+            故事书官方QQ群：1059031473 &nbsp;&nbsp;&nbsp; 故事书官方OOPZ：
+            <a 
+              href="https://oopz.cn/i/L3xunQ" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="underline hover:opacity-80 transition-opacity italic"
+              style={{ color: '#C2B79C' }}
+            >
+              @https://oopz.cn/i/L3xunQ
+            </a>
+          </div>
+        </div>
       </div>
     </div>
   );
